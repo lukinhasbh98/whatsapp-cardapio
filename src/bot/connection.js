@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, Browsers } = require('@whiskeysockets/baileys');
 const path = require('path');
 const fs = require('fs');
 const pino = require('pino');
@@ -20,7 +20,7 @@ async function startBot() {
     version,
     auth: state,
     logger: pino({ level: 'silent' }),
-    browser: ['Cardápio Bot', 'Chrome', '1.0.0'],
+    browser: Browsers.ubuntu('Chrome'),
   });
 
   sock.ev.on('creds.update', saveCreds);
@@ -44,7 +44,7 @@ async function startBot() {
       const reason = lastDisconnect?.error?.output?.statusCode;
       const loggedOut = reason === DisconnectReason.loggedOut;
       const badSession = loggedOut || [403, 405, 500].includes(reason);
-      console.log('⚠️ Conexão encerrada. Motivo:', reason, '| Reconectando em', _reconnectDelay / 1000, 's...');
+      console.log('⚠️ Conexão encerrada. Motivo:', reason, '| Erro:', lastDisconnect?.error?.message, '| Reconectando em', _reconnectDelay / 1000, 's...');
       notifier.emitBotStatus('disconnected');
       if (badSession) {
         fs.rmSync(SESSIONS_PATH, { recursive: true, force: true });
