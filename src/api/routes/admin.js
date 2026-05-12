@@ -12,6 +12,11 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
 
+function parseDays(raw) {
+  try { const d = JSON.parse(raw || '[]'); return JSON.stringify(Array.isArray(d) ? d : []); }
+  catch { return '[]'; }
+}
+
 // ── Categories ─────────────────────────────────────────────────────────────
 router.get('/categories', authMiddleware, (req, res) => {
   res.json(db.prepare('SELECT * FROM categories ORDER BY sort_order').all());
@@ -45,22 +50,24 @@ router.get('/items', authMiddleware, (req, res) => {
 });
 
 router.post('/items', authMiddleware, upload.single('image'), (req, res) => {
-  const { category_id, name, description, price } = req.body;
+  const { category_id, name, description, price, available_days } = req.body;
   const image_url = req.file ? `/uploads/${req.file.filename}` : '';
-  const result = db.prepare('INSERT INTO menu_items (category_id, name, description, price, image_url) VALUES (?, ?, ?, ?, ?)')
-    .run(category_id, name, description || '', parseFloat(price), image_url);
+  const days = parseDays(available_days);
+  const result = db.prepare('INSERT INTO menu_items (category_id, name, description, price, image_url, available_days) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(category_id, name, description || '', parseFloat(price), image_url, days);
   res.json({ id: result.lastInsertRowid });
 });
 
 router.put('/items/:id', authMiddleware, upload.single('image'), (req, res) => {
-  const { name, description, price, active, category_id } = req.body;
+  const { name, description, price, active, category_id, available_days } = req.body;
+  const days = parseDays(available_days);
   const image_url = req.file ? `/uploads/${req.file.filename}` : undefined;
   if (image_url !== undefined) {
-    db.prepare('UPDATE menu_items SET name=?, description=?, price=?, active=?, category_id=?, image_url=? WHERE id=?')
-      .run(name, description, parseFloat(price), active, category_id, image_url, req.params.id);
+    db.prepare('UPDATE menu_items SET name=?, description=?, price=?, active=?, category_id=?, image_url=?, available_days=? WHERE id=?')
+      .run(name, description, parseFloat(price), active, category_id, image_url, days, req.params.id);
   } else {
-    db.prepare('UPDATE menu_items SET name=?, description=?, price=?, active=?, category_id=? WHERE id=?')
-      .run(name, description, parseFloat(price), active, category_id, req.params.id);
+    db.prepare('UPDATE menu_items SET name=?, description=?, price=?, active=?, category_id=?, available_days=? WHERE id=?')
+      .run(name, description, parseFloat(price), active, category_id, days, req.params.id);
   }
   res.json({ ok: true });
 });

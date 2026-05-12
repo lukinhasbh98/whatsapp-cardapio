@@ -56,6 +56,12 @@
     .extra-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; font-size: 0.85rem; }
     .extra-row span { flex: 1; }
     .extra-row button { background: none; border: none; color: #f85149; cursor: pointer; }
+    .days-checks { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+    .days-checks label { display: flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #30363d; border-radius: 20px; cursor: pointer; font-size: 0.8rem; color: #8b949e; }
+    .days-checks input[type=checkbox] { display: none; }
+    .days-checks input[type=checkbox]:checked + span { color: #58a6ff; font-weight: 600; }
+    .days-checks label:has(input:checked) { border-color: #58a6ff; background: #0d2137; color: #58a6ff; }
+    .days-badge { font-size: 0.72rem; color: #8b949e; margin-top: 4px; }
   </style>
 </head>
 <body>
@@ -94,6 +100,19 @@
         <label>Ativo</label>
         <select id="item-active"><option value="1">Sim</option><option value="0">Não</option></select>
       </div>
+      <div class="form-group">
+        <label>Disponível nos dias</label>
+        <div class="days-checks" id="days-checks">
+          <label><input type="checkbox" value="0"><span>Dom</span></label>
+          <label><input type="checkbox" value="1"><span>Seg</span></label>
+          <label><input type="checkbox" value="2"><span>Ter</span></label>
+          <label><input type="checkbox" value="3"><span>Qua</span></label>
+          <label><input type="checkbox" value="4"><span>Qui</span></label>
+          <label><input type="checkbox" value="5"><span>Sex</span></label>
+          <label><input type="checkbox" value="6"><span>Sáb</span></label>
+        </div>
+        <small style="color:#8b949e;font-size:0.75rem;margin-top:4px;display:block">Deixe todos desmarcados para disponível todos os dias</small>
+      </div>
       <hr style="border-color:#30363d;margin:16px 0">
       <h4 style="margin-bottom:10px;font-size:0.9rem">Acréscimos disponíveis</h4>
       <div class="extras-list" id="extras-list"></div>
@@ -128,6 +147,10 @@
     if (!token) location.href = '/';
     const h = (isForm) => isForm ? { 'Authorization': `Bearer ${token}` } : { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
     const fmt = v => 'R$ ' + Number(v).toFixed(2).replace('.', ',');
+    const DAY_NAMES = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+    const getDaysText = days => days.length ? days.map(d => DAY_NAMES[d]).join(', ') : 'Todos os dias';
+    const getDaysChecked = () => Array.from(document.querySelectorAll('#days-checks input:checked')).map(cb => parseInt(cb.value));
+    const setDaysChecked = days => document.querySelectorAll('#days-checks input').forEach(cb => { cb.checked = days.includes(parseInt(cb.value)); });
 
     let categories = [];
     let currentCatId = null;
@@ -155,13 +178,16 @@
       const res = await fetch(`/api/admin/items?category_id=${id}`, { headers: h() });
       const items = await res.json();
       document.getElementById('items-grid').innerHTML = items.length
-        ? items.map(item => `
+        ? items.map(item => {
+            const days = JSON.parse(item.available_days || '[]');
+            return `
           <div class="item-card">
             ${item.image_url ? `<img src="${item.image_url}">` : `<div class="no-img">🍽️</div>`}
             <div class="item-body">
               <div class="item-name">${item.name}</div>
               ${item.description ? `<div class="item-desc">${item.description}</div>` : ''}
               <div class="item-price">${fmt(item.price)}</div>
+              <div class="days-badge">📅 ${getDaysText(days)}</div>
               <div class="item-footer">
                 <span class="toggle">${item.active ? '✅ Ativo' : '⛔ Inativo'}</span>
                 <div class="item-actions">
@@ -170,7 +196,7 @@
                 </div>
               </div>
             </div>
-          </div>`).join('')
+          </div>`; }).join('')
         : '<p style="color:#8b949e;padding:40px">Nenhum item nesta categoria.</p>';
     }
 
@@ -183,6 +209,7 @@
       document.getElementById('item-price').value = '';
       document.getElementById('item-active').value = '1';
       document.getElementById('extras-list').innerHTML = '';
+      setDaysChecked([]);
       if (id) {
         const res = await fetch(`/api/admin/items?category_id=${currentCatId}`, { headers: h() });
         const items = await res.json();
@@ -192,6 +219,7 @@
           document.getElementById('item-desc').value = item.description || '';
           document.getElementById('item-price').value = item.price;
           document.getElementById('item-active').value = item.active;
+          setDaysChecked(JSON.parse(item.available_days || '[]'));
         }
         const extRes = await fetch(`/api/admin/items/${id}/extras`, { headers: h() });
         const extras = await extRes.json();
@@ -235,6 +263,7 @@
       formData.append('description', document.getElementById('item-desc').value);
       formData.append('price', document.getElementById('item-price').value);
       formData.append('active', document.getElementById('item-active').value);
+      formData.append('available_days', JSON.stringify(getDaysChecked()));
       const imgFile = document.getElementById('item-image').files[0];
       if (imgFile) formData.append('image', imgFile);
 

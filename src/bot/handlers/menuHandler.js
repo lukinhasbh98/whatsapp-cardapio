@@ -35,12 +35,16 @@ async function sendItems(sock, phone, session, categoryIndex) {
     return;
   }
 
-  const items = db.prepare(
-    'SELECT * FROM menu_items WHERE category_id = ? AND active = 1'
-  ).all(category.id);
+  const todayIdx = new Date().getDay(); // 0=Dom, 1=Seg ... 6=Sáb
+  const allItems = db.prepare('SELECT * FROM menu_items WHERE category_id = ? AND active = 1').all(category.id);
+  const items = allItems.filter(item => {
+    const days = JSON.parse(item.available_days || '[]');
+    return days.length === 0 || days.includes(todayIdx);
+  });
 
   if (!items.length) {
-    await sock.sendMessage(phone, { text: `⚠️ Sem itens disponíveis em *${category.name}* no momento.` });
+    const DAY_NAMES = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+    await sock.sendMessage(phone, { text: `⚠️ Nenhum item disponível em *${category.name}* nesta ${DAY_NAMES[todayIdx]}. Tente outra categoria!` });
     await sendCategories(sock, phone, session);
     return;
   }

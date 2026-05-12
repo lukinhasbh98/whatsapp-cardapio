@@ -13,6 +13,9 @@ const db = new Database(DB_PATH);
 const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
 db.exec(schema);
 
+// Migrations
+try { db.exec("ALTER TABLE menu_items ADD COLUMN available_days TEXT DEFAULT '[]'"); } catch (_) { /* já existe */ }
+
 // Helpers
 db.getSetting = (key) => {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
