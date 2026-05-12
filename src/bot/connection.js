@@ -27,11 +27,11 @@ async function startBot() {
   sock.ev.on('contacts.upsert', upsertContacts);
   sock.ev.on('contacts.update', upsertContacts);
 
-  sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+  sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
     if (qr) {
-      console.log('\n📱 Escaneie o QR Code abaixo com seu WhatsApp:\n');
+      console.log('\n📱 QR Code gerado — escaneie com seu WhatsApp:\n');
       qrcode.generate(qr, { small: true });
-      notifier.emitQR(qr);
+      await notifier.emitQR(qr);   // aguarda data URL antes de avisar o painel
       notifier.emitBotStatus('qr');
     }
     if (connection === 'open') {
