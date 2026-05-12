@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, Browsers } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, fetchLatestWAWebVersion, Browsers } = require('@whiskeysockets/baileys');
 const path = require('path');
 const fs = require('fs');
 const pino = require('pino');
@@ -14,7 +14,13 @@ let _reconnectDelay = 5000;
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState(SESSIONS_PATH);
-  const { version } = await fetchLatestBaileysVersion();
+  let version;
+  try {
+    ({ version } = await fetchLatestWAWebVersion());
+  } catch {
+    ({ version } = await fetchLatestBaileysVersion());
+  }
+  console.log('📡 Versão WA Web:', version?.join('.'));
 
   const sock = makeWASocket({
     version,
