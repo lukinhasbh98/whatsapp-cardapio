@@ -10,6 +10,8 @@ const { handleMessage } = require('./messageRouter');
 
 const SESSIONS_PATH = path.join(__dirname, '../../sessions');
 
+let _reconnectDelay = 5000;
+
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState(SESSIONS_PATH);
   const { version } = await fetchLatestBaileysVersion();
@@ -34,22 +36,23 @@ async function startBot() {
     }
     if (connection === 'open') {
       console.log('✅ Bot conectado ao WhatsApp!');
+      _reconnectDelay = 5000;
       notifier.updateSock(sock);
       notifier.emitBotStatus('connected');
     }
     if (connection === 'close') {
       const reason = lastDisconnect?.error?.output?.statusCode;
       const loggedOut = reason === DisconnectReason.loggedOut;
-      // 405 = session replaced/invalid, 403 = forbidden, 500 = bad session
       const badSession = loggedOut || [403, 405, 500].includes(reason);
-      console.log('⚠️ Conexão encerrada. Motivo:', reason, '| loggedOut:', loggedOut);
+      console.log('⚠️ Conexão encerrada. Motivo:', reason, '| Reconectando em', _reconnectDelay / 1000, 's...');
       notifier.emitBotStatus('disconnected');
       if (badSession) {
         fs.rmSync(SESSIONS_PATH, { recursive: true, force: true });
         fs.mkdirSync(SESSIONS_PATH, { recursive: true });
         console.log('🗑️ Sessão removida. Aguardando novo QR Code...');
       }
-      setTimeout(startBot, 3000);
+      setTimeout(startBot, _reconnectDelay);
+      _reconnectDelay = Math.min(_reconnectDelay * 2, 120000); // dobra até 2 minutos
     }
   });
 
