@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pedidos — Cardápio Bot</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; }
+    nav { background: #161b22; border-bottom: 1px solid #30363d; padding: 12px 24px; display: flex; align-items: center; gap: 20px; }
+    nav .logo { font-size: 1.4rem; font-weight: 700; color: #58a6ff; }
+    nav a { color: #8b949e; text-decoration: none; font-size: 0.9rem; }
+    nav a:hover, nav a.active { color: #e6edf3; }
+    nav button { margin-left: auto; background: none; border: 1px solid #30363d; border-radius: 6px; color: #8b949e; padding: 6px 12px; cursor: pointer; }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 24px; }
+    .stat { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+    .stat .label { font-size: 0.8rem; color: #8b949e; margin-bottom: 6px; }
+    .stat .value { font-size: 1.8rem; font-weight: 700; color: #58a6ff; }
+    .orders-section { padding: 0 24px 24px; }
+    .filter-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .filter-bar button { padding: 6px 14px; border-radius: 20px; border: 1px solid #30363d; background: none; color: #8b949e; cursor: pointer; font-size: 0.85rem; }
+    .filter-bar button.active { background: #58a6ff; border-color: #58a6ff; color: #0d1117; }
+    .order-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+    .order-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+    .order-num { font-weight: 700; font-size: 1rem; }
+    .order-time { font-size: 0.78rem; color: #8b949e; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+    .badge-awaiting_payment { background: #e3b34122; color: #e3b341; }
+    .badge-confirmed { background: #58a6ff22; color: #58a6ff; }
+    .badge-preparing { background: #f0883e22; color: #f0883e; }
+    .badge-out_for_delivery { background: #a371f722; color: #a371f7; }
+    .badge-delivered { background: #3fb95022; color: #3fb950; }
+    .badge-cancelled { background: #f8514922; color: #f85149; }
+    .order-info { font-size: 0.85rem; color: #8b949e; margin-bottom: 8px; }
+    .order-items { font-size: 0.85rem; margin-bottom: 12px; }
+    .order-items li { margin-left: 16px; }
+    .order-footer { display: flex; justify-content: space-between; align-items: center; }
+    .order-total { font-weight: 700; color: #3fb950; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .actions button { padding: 6px 12px; border-radius: 6px; border: none; cursor: pointer; font-size: 0.8rem; font-weight: 600; }
+    .btn-confirm { background: #238636; color: #fff; }
+    .btn-prepare { background: #f0883e; color: #fff; }
+    .btn-deliver { background: #a371f7; color: #fff; }
+    .btn-done { background: #3fb950; color: #0d1117; }
+    .btn-cancel { background: #f85149; color: #fff; }
+    .new-order-toast { position: fixed; bottom: 24px; right: 24px; background: #238636; color: #fff; padding: 14px 20px; border-radius: 8px; font-weight: 600; display: none; z-index: 999; }
+    .date-bar { display: flex; align-items: center; gap: 10px; padding: 16px 24px 0; flex-wrap: wrap; }
+    .date-bar label { font-size: 0.82rem; color: #8b949e; }
+    .date-bar input[type=date] { background: #161b22; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; padding: 5px 10px; font-size: 0.85rem; cursor: pointer; }
+    .date-bar input[type=date]:focus { outline: none; border-color: #58a6ff; }
+    .date-shortcut { padding: 5px 12px; border-radius: 20px; border: 1px solid #30363d; background: none; color: #8b949e; cursor: pointer; font-size: 0.82rem; }
+    .date-shortcut.active { background: #30363d; color: #e6edf3; }
+    .stat .label { font-size: 0.8rem; color: #8b949e; margin-bottom: 2px; }
+    .stat .period { font-size: 0.72rem; color: #484f58; margin-bottom: 6px; }
+    #qr-banner { background: #161b22; border: 1px solid #f0883e55; border-radius: 10px; margin: 20px 24px 0; padding: 20px 24px; display: flex; align-items: center; gap: 24px; }
+    #qr-banner.hidden { display: none; }
+    #qr-canvas-wrap img { border-radius: 8px; display: block; }
+    #qr-info .title { font-weight: 700; font-size: 1rem; color: #f0883e; margin-bottom: 6px; }
+    #qr-info .subtitle { font-size: 0.85rem; color: #8b949e; line-height: 1.5; }
+    #bot-status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #8b949e; margin-right: 6px; vertical-align: middle; }
+    #bot-status-dot.connected { background: #3fb950; }
+    #bot-status-dot.qr { background: #f0883e; }
+  </style>
+</head>
+<body>
+  <nav>
+    <span class="logo">🍴 Cardápio Bot</span>
+    <a href="/dashboard.html" class="active">Pedidos</a>
+    <a href="/menu.html">Cardápio</a>
+    <a href="/settings.html">Configurações</a>
+    <span style="margin-left:auto;font-size:0.82rem;color:#8b949e"><span id="bot-status-dot"></span><span id="bot-status-label">Verificando...</span></span>
+    <button onclick="logout()" style="margin-left:12px">Sair</button>
+  </nav>
+
+  <div id="qr-banner" class="hidden">
+    <div id="qr-canvas-wrap"></div>
+    <div id="qr-info">
+      <div class="title">📱 Conecte o WhatsApp</div>
+      <div class="subtitle">
+        Abra o WhatsApp no celular<br>
+        Toque em <strong>⋮ → Aparelhos conectados → Conectar aparelho</strong><br>
+        e aponte a câmera para este QR Code.
+      </div>
+    </div>
+  </div>
+
+  <div class="date-bar">
+    <label>De: <input type="date" id="date-from"></label>
+    <label>Até: <input type="date" id="date-to"></label>
+    <button class="date-shortcut active" id="sh-today"   onclick="setShortcut('today')">Hoje</button>
+    <button class="date-shortcut"        id="sh-yesterday" onclick="setShortcut('yesterday')">Ontem</button>
+    <button class="date-shortcut"        id="sh-7days"   onclick="setShortcut('7days')">7 dias</button>
+    <button class="date-shortcut"        id="sh-month"   onclick="setShortcut('month')">Este mês</button>
+    <button class="date-shortcut"        id="sh-all"     onclick="setShortcut('all')">Todos</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="label">Pedidos</div><div class="period" id="stat-period">hoje</div><div class="value" id="stat-orders">–</div></div>
+    <div class="stat"><div class="label">Faturamento</div><div class="period" id="stat-period2">hoje</div><div class="value" id="stat-revenue">–</div></div>
+    <div class="stat"><div class="label">Em aberto</div><div class="period"></div><div class="value" id="stat-pending">–</div></div>
+    <div class="stat"><div class="label">Avaliação média</div><div class="period"></div><div class="value" id="stat-rating">–</div></div>
+  </div>
+
+  <div class="orders-section">
+    <div class="filter-bar">
+      <button class="active" onclick="filterOrders('')" id="f-all">Todos</button>
+      <button onclick="filterOrders('awaiting_payment')" id="f-awaiting_payment">Aguard. PIX</button>
+      <button onclick="filterOrders('confirmed')" id="f-confirmed">Confirmados</button>
+      <button onclick="filterOrders('preparing')" id="f-preparing">Preparando</button>
+      <button onclick="filterOrders('out_for_delivery')" id="f-out_for_delivery">Saiu p/ entrega</button>
+      <button onclick="filterOrders('delivered')" id="f-delivered">Entregues</button>
+    </div>
+    <div id="orders-list"></div>
+  </div>
+
+  <div class="new-order-toast" id="toast">🔔 Novo pedido recebido!</div>
+
+  <script>
+    const token = localStorage.getItem('admin_token');
+    if (!token) location.href = '/';
+    const h = () => ({ 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' });
+    const fmt = v => 'R$ ' + Number(v).toFixed(2).replace('.', ',');
+    const fmtPhone = p => (p || '').replace(/@.*/, '');
+    const statusLabels = { awaiting_payment:'Aguard. PIX', confirmed:'Confirmado', preparing:'Preparando', out_for_delivery:'Saiu p/ entrega', delivered:'Entregue', cancelled:'Cancelado' };
+
+    let currentFilter = '';
+    let allOrders = [];
+    let dateFrom = '', dateTo = '';
+
+    const toISO = d => d.toISOString().split('T')[0];
+    const today = toISO(new Date());
+
+    function setShortcut(key) {
+      const now = new Date();
+      document.querySelectorAll('.date-shortcut').forEach(b => b.classList.remove('active'));
+      document.getElementById('sh-' + key)?.classList.add('active');
+      if (key === 'today')     { dateFrom = dateTo = today; }
+      else if (key === 'yesterday') { const y = new Date(now); y.setDate(y.getDate()-1); dateFrom = dateTo = toISO(y); }
+      else if (key === '7days')     { const s = new Date(now); s.setDate(s.getDate()-6); dateFrom = toISO(s); dateTo = today; }
+      else if (key === 'month')     { dateFrom = toISO(new Date(now.getFullYear(), now.getMonth(), 1)); dateTo = today; }
+      else if (key === 'all')       { dateFrom = ''; dateTo = ''; }
+      document.getElementById('date-from').value = dateFrom;
+      document.getElementById('date-to').value   = dateTo;
+      updatePeriodLabel();
+      loadOrders(); loadStats();
+    }
+
+    function applyCustomDate() {
+      dateFrom = document.getElementById('date-from').value;
+      dateTo   = document.getElementById('date-to').value;
+      document.querySelectorAll('.date-shortcut').forEach(b => b.classList.remove('active'));
+      updatePeriodLabel();
+      loadOrders(); loadStats();
+    }
+
+    function updatePeriodLabel() {
+      let label = '';
+      if (!dateFrom && !dateTo)            label = 'todos os períodos';
+      else if (dateFrom === dateTo)        label = dateFrom === today ? 'hoje' : dateFrom;
+      else                                 label = `${dateFrom} → ${dateTo}`;
+      document.getElementById('stat-period').textContent  = label;
+      document.getElementById('stat-period2').textContent = label;
+    }
+
+    // Init date inputs
+    document.getElementById('date-from').value = today;
+    document.getElementById('date-to').value   = today;
+    dateFrom = dateTo = today;
+    document.getElementById('date-from').addEventListener('change', applyCustomDate);
+    document.getElementById('date-to').addEventListener('change', applyCustomDate);
+
+    const socket = io();
+
+    let _pollInterval = null;
+
+    function setBotStatus(status, qr) {
+      const dot = document.getElementById('bot-status-dot');
+      const label = document.getElementById('bot-status-label');
+      const banner = document.getElementById('qr-banner');
+      dot.className = status;
+      if (status === 'connected') {
+        label.textContent = 'WhatsApp conectado';
+        banner.classList.add('hidden');
+        stopPolling();
+      } else if (status === 'qr') {
+        label.textContent = 'Aguardando leitura do QR Code';
+        banner.classList.remove('hidden');
+        if (qr) {
+          document.getElementById('qr-canvas-wrap').innerHTML =
+            `<img src="${qr}" width="180" height="180" alt="QR Code WhatsApp">`;
+        }
+      } else {
+        label.textContent = 'Desconectado';
+        banner.classList.add('hidden');
+        startPolling();
+      }
+    }
+
+    async function fetchBotStatus() {
+      try {
+        const res = await fetch('/api/admin/bot-status', { headers: h() });
+        if (!res.ok) return;
+        const { status, qr } = await res.json();
+        setBotStatus(status, qr);
+      } catch {}
+    }
+
+    function startPolling() {
+      if (_pollInterval) return;
+      _pollInterval = setInterval(fetchBotStatus, 3000);
+    }
+
+    function stopPolling() {
+      if (_pollInterval) { clearInterval(_pollInterval); _pollInterval = null; }
+    }
+
+    socket.on('bot_status', ({ status }) => setBotStatus(status));
+    socket.on('qr_code', ({ qr }) => setBotStatus('qr', qr));
+
+    fetchBotStatus();
+
+    socket.on('new_order', () => {
+      loadOrders();
+      loadStats();
+      const t = document.getElementById('toast');
+      t.style.display = 'block';
+      setTimeout(() => t.style.display = 'none', 4000);
+    });
+    socket.on('order_status_update', ({ orderId, status }) => {
+      const o = allOrders.find(x => x.id == orderId);
+      if (o) o.status = status;
+      renderOrders();
+      loadStats();
+    });
+
+    async function loadOrders() {
+      const params = new URLSearchParams();
+      if (dateFrom) params.set('date_from', dateFrom);
+      if (dateTo)   params.set('date_to',   dateTo);
+      const res = await fetch('/api/admin/orders?' + params, { headers: h() });
+      allOrders = await res.json();
+      renderOrders();
+    }
+
+    function filterOrders(status) {
+      currentFilter = status;
+      document.querySelectorAll('.filter-bar button').forEach(b => b.classList.remove('active'));
+      document.getElementById('f-' + (status || 'all')).classList.add('active');
+      renderOrders();
+    }
+
+    function renderOrders() {
+      const list = document.getElementById('orders-list');
+      const filtered = currentFilter ? allOrders.filter(o => o.status === currentFilter) : allOrders;
+      if (!filtered.length) { list.innerHTML = '<p style="color:#8b949e;text-align:center;padding:40px">Nenhum pedido.</p>'; return; }
+      list.innerHTML = filtered.map(o => `
+        <div class="order-card" id="order-${o.id}">
+          <div class="order-header">
+            <div>
+              <span class="order-num">#${String(o.id).padStart(4,'0')}</span>
+              <span class="badge badge-${o.status}" style="margin-left:10px">${statusLabels[o.status]||o.status}</span>
+            </div>
+            <span class="order-time">${o.created_at}</span>
+          </div>
+          <div class="order-info">📱 ${fmtPhone(o.customer_phone)} &nbsp;|&nbsp; 📍 ${o.address}</div>
+          <div class="order-info">💳 ${{pix:'PIX',cash:'Dinheiro',card:'Cartão'}[o.payment_method]||o.payment_method}${o.change_amount>0?' | Troco: '+fmt(o.change_amount):''}</div>
+          <div class="order-footer">
+            <span class="order-total">${fmt(o.total)}</span>
+            <div class="actions">${getActions(o)}</div>
+          </div>
+        </div>`).join('');
+    }
+
+    function getActions(o) {
+      const btns = [];
+      if (o.status === 'confirmed') btns.push(`<button class="btn-prepare" onclick="setStatus(${o.id},'preparing')">Preparando</button>`);
+      if (o.status === 'preparing') btns.push(`<button class="btn-deliver" onclick="setStatus(${o.id},'out_for_delivery')">Saiu p/ entrega</button>`);
+      if (o.status === 'out_for_delivery') btns.push(`<button class="btn-done" onclick="setStatus(${o.id},'delivered')">Entregue</button>`);
+      if (!['delivered','cancelled'].includes(o.status)) btns.push(`<button class="btn-cancel" onclick="setStatus(${o.id},'cancelled')">Cancelar</button>`);
+      return btns.join('');
+    }
+
+    async function setStatus(id, status) {
+      await fetch(`/api/admin/orders/${id}/status`, { method: 'PUT', headers: h(), body: JSON.stringify({ status }) });
+      const o = allOrders.find(x => x.id == id);
+      if (o) o.status = status;
+      renderOrders();
+      loadStats();
+    }
+
+    async function loadStats() {
+      const params = new URLSearchParams();
+      if (dateFrom) params.set('date_from', dateFrom);
+      if (dateTo)   params.set('date_to',   dateTo);
+      const res = await fetch('/api/admin/stats?' + params, { headers: h() });
+      const s = await res.json();
+      document.getElementById('stat-orders').textContent  = s.orders_today;
+      document.getElementById('stat-revenue').textContent = fmt(s.revenue_today);
+      document.getElementById('stat-pending').textContent = s.orders_pending;
+      document.getElementById('stat-rating').textContent  = s.avg_rating ? s.avg_rating + ' ⭐' : '–';
+    }
+
+    function logout() { localStorage.removeItem('admin_token'); location.href = '/'; }
+
+    updatePeriodLabel();
+    loadOrders();
+    loadStats();
+    setInterval(() => { loadOrders(); loadStats(); }, 30000);
+  </script>
+</body>
+</html>

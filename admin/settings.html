@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configurações — Cardápio Bot</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; }
+    nav { background: #161b22; border-bottom: 1px solid #30363d; padding: 12px 24px; display: flex; align-items: center; gap: 20px; }
+    nav .logo { font-size: 1.4rem; font-weight: 700; color: #58a6ff; }
+    nav a { color: #8b949e; text-decoration: none; font-size: 0.9rem; }
+    nav a:hover, nav a.active { color: #e6edf3; }
+    nav button { margin-left: auto; background: none; border: 1px solid #30363d; border-radius: 6px; color: #8b949e; padding: 6px 12px; cursor: pointer; }
+    .content { max-width: 700px; margin: 32px auto; padding: 0 16px; }
+    h2 { margin-bottom: 24px; }
+    .section { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+    .section h3 { font-size: 0.9rem; color: #58a6ff; text-transform: uppercase; margin-bottom: 16px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 0.8rem; color: #8b949e; margin-bottom: 5px; }
+    .form-group input, .form-group textarea { width: 100%; padding: 9px 12px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; font-size: 0.9rem; }
+    .form-group input:focus, .form-group textarea:focus { outline: none; border-color: #58a6ff; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .btn-save { background: #238636; border: none; border-radius: 6px; color: #fff; padding: 10px 24px; cursor: pointer; font-size: 0.95rem; font-weight: 600; }
+    .btn-save:hover { background: #2ea043; }
+    .toast { position: fixed; bottom: 24px; right: 24px; background: #238636; color: #fff; padding: 12px 20px; border-radius: 8px; display: none; }
+  </style>
+</head>
+<body>
+  <nav>
+    <span class="logo">🍴 Cardápio Bot</span>
+    <a href="/dashboard.html">Pedidos</a>
+    <a href="/menu.html">Cardápio</a>
+    <a href="/settings.html" class="active">Configurações</a>
+    <button onclick="logout()">Sair</button>
+  </nav>
+
+  <div class="content">
+    <h2>Configurações</h2>
+
+    <div class="section">
+      <h3>Estabelecimento</h3>
+      <div class="form-group"><label>Nome do estabelecimento</label><input id="business_name" placeholder="Ex: Lanchonete do João"></div>
+      <div class="form-group"><label>Mensagem de boas-vindas</label><textarea id="welcome_message" rows="2"></textarea></div>
+      <div class="form-group"><label>Mensagem quando fechado</label><textarea id="closed_message" rows="2" placeholder="Use {open} para horário de abertura"></textarea></div>
+    </div>
+
+    <div class="section">
+      <h3>Horário de Funcionamento</h3>
+      <div class="form-row">
+        <div class="form-group"><label>Abre às</label><input id="business_hours_open" type="time"></div>
+        <div class="form-group"><label>Fecha às</label><input id="business_hours_close" type="time"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Entrega</h3>
+      <div class="form-row">
+        <div class="form-group"><label>Taxa de entrega (R$)</label><input id="delivery_fee" type="number" step="0.01" min="0"></div>
+        <div class="form-group"><label>Pedido mínimo (R$)</label><input id="min_order" type="number" step="0.01" min="0"></div>
+      </div>
+      <div class="form-group"><label>Tempo estimado de entrega</label><input id="estimated_time" placeholder="Ex: 40-60 minutos"></div>
+    </div>
+
+    <div class="section">
+      <h3>Pagamento PIX</h3>
+      <div class="form-group"><label>Chave PIX (informativa, exibida no bot se necessário)</label><input id="pix_key" placeholder="CPF, CNPJ, e-mail ou chave aleatória"></div>
+    </div>
+
+    <div class="section">
+      <h3>Notificações</h3>
+      <div class="form-group"><label>Número WhatsApp do admin (para receber alertas de novos pedidos)</label><input id="admin_whatsapp" placeholder="Ex: 5511999999999 (só números, com DDI)"></div>
+    </div>
+
+    <button class="btn-save" onclick="saveSettings()">Salvar configurações</button>
+  </div>
+
+  <div class="toast" id="toast">✅ Configurações salvas!</div>
+
+  <script>
+    const token = localStorage.getItem('admin_token');
+    if (!token) location.href = '/';
+    const h = () => ({ 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' });
+
+    const fields = ['business_name','welcome_message','closed_message','business_hours_open','business_hours_close','delivery_fee','min_order','estimated_time','pix_key','admin_whatsapp'];
+
+    async function loadSettings() {
+      const res = await fetch('/api/admin/settings', { headers: h() });
+      const settings = await res.json();
+      fields.forEach(k => { if (document.getElementById(k)) document.getElementById(k).value = settings[k] || ''; });
+    }
+
+    async function saveSettings() {
+      const updates = {};
+      fields.forEach(k => { if (document.getElementById(k)) updates[k] = document.getElementById(k).value; });
+      await fetch('/api/admin/settings', { method: 'PUT', headers: h(), body: JSON.stringify(updates) });
+      const t = document.getElementById('toast');
+      t.style.display = 'block';
+      setTimeout(() => t.style.display = 'none', 3000);
+    }
+
+    function logout() { localStorage.removeItem('admin_token'); location.href = '/'; }
+
+    loadSettings();
+  </script>
+</body>
+</html>

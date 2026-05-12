@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cardápio Bot — Login</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 40px; width: 360px; }
+    .logo { text-align: center; font-size: 2.5rem; margin-bottom: 8px; }
+    h1 { text-align: center; font-size: 1.3rem; margin-bottom: 24px; color: #58a6ff; }
+    label { display: block; font-size: 0.85rem; color: #8b949e; margin-bottom: 6px; }
+    input { width: 100%; padding: 10px 14px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; font-size: 1rem; margin-bottom: 20px; }
+    input:focus { outline: none; border-color: #58a6ff; }
+    button { width: 100%; padding: 12px; background: #238636; border: none; border-radius: 6px; color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer; }
+    button:hover { background: #2ea043; }
+    .error { color: #f85149; font-size: 0.85rem; margin-top: -12px; margin-bottom: 16px; display: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">🍴</div>
+    <h1>Cardápio Bot — Admin</h1>
+    <label>Senha</label>
+    <input type="password" id="password" placeholder="Digite a senha" onkeydown="if(event.key==='Enter')login()">
+    <p class="error" id="err">Senha incorreta.</p>
+    <button onclick="login()">Entrar</button>
+  </div>
+  <script>
+    if (localStorage.getItem('admin_token')) location.href = '/dashboard.html';
+    async function login() {
+      const pw = document.getElementById('password').value;
+      const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }) });
+      if (res.ok) { const { token } = await res.json(); localStorage.setItem('admin_token', token); location.href = '/dashboard.html'; }
+      else { document.getElementById('err').style.display = 'block'; }
+    }
+  </script>
+</body>
+</html>
