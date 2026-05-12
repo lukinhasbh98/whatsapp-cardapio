@@ -40,9 +40,11 @@ async function startBot() {
     if (connection === 'close') {
       const reason = lastDisconnect?.error?.output?.statusCode;
       const loggedOut = reason === DisconnectReason.loggedOut;
+      // 405 = session replaced/invalid, 403 = forbidden, 500 = bad session
+      const badSession = loggedOut || [403, 405, 500].includes(reason);
       console.log('⚠️ Conexão encerrada. Motivo:', reason, '| loggedOut:', loggedOut);
       notifier.emitBotStatus('disconnected');
-      if (loggedOut) {
+      if (badSession) {
         fs.rmSync(SESSIONS_PATH, { recursive: true, force: true });
         fs.mkdirSync(SESSIONS_PATH, { recursive: true });
         console.log('🗑️ Sessão removida. Aguardando novo QR Code...');
