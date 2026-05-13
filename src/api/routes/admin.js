@@ -145,6 +145,15 @@ router.get('/bot-status', authMiddleware, (req, res) => {
   res.json(getBotStatus());
 });
 
+router.post('/bot/connect', authMiddleware, async (req, res) => {
+  const { startBot, hasSession } = require('../../bot/connection');
+  if (hasSession()) {
+    return res.json({ ok: true, message: 'Sessão já existe, reconectando...' });
+  }
+  startBot().catch(err => console.error('[bot/connect] erro:', err.message));
+  res.json({ ok: true });
+});
+
 // ── Stats ────────────────────────────────────────────────────────────────────
 router.get('/stats', authMiddleware, (req, res) => {
   const today = new Date().toISOString().split('T')[0];

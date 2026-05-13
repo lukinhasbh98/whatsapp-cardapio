@@ -11,8 +11,18 @@ const { handleMessage } = require('./messageRouter');
 const SESSIONS_PATH = path.join(__dirname, '../../sessions');
 
 let _reconnectDelay = 5000;
+let _connecting = false;
+
+function hasSession() {
+  try {
+    return fs.readdirSync(SESSIONS_PATH).some(f => f.endsWith('.json'));
+  } catch { return false; }
+}
 
 async function startBot() {
+  if (_connecting) return;
+  _connecting = true;
+
   const { state, saveCreds } = await useMultiFileAuthState(SESSIONS_PATH);
   let version;
   try {
@@ -28,6 +38,8 @@ async function startBot() {
     logger: pino({ level: 'silent' }),
     browser: Browsers.ubuntu('Chrome'),
   });
+
+  _connecting = false;
 
   sock.ev.on('creds.update', saveCreds);
   sock.ev.on('contacts.upsert', upsertContacts);
@@ -50,15 +62,19 @@ async function startBot() {
       const reason = lastDisconnect?.error?.output?.statusCode;
       const loggedOut = reason === DisconnectReason.loggedOut;
       const badSession = loggedOut || [403, 405, 500].includes(reason);
-      console.log('⚠️ Conexão encerrada. Motivo:', reason, '| Erro:', lastDisconnect?.error?.message, '| Reconectando em', _reconnectDelay / 1000, 's...');
-      notifier.emitBotStatus('disconnected');
+      console.log('⚠️ Conexão encerrada. Motivo:', reason, '| Erro:', lastDisconnect?.error?.message);
+
       if (badSession) {
         fs.rmSync(SESSIONS_PATH, { recursive: true, force: true });
         fs.mkdirSync(SESSIONS_PATH, { recursive: true });
-        console.log('🗑️ Sessão removida. Aguardando novo QR Code...');
+        console.log('🗑️ Sessão removida. Clique em "Conectar" no painel para gerar novo QR Code.');
+        notifier.emitBotStatus('needs_connect');
+      } else {
+        console.log('Reconectando em', _reconnectDelay / 1000, 's...');
+        notifier.emitBotStatus('disconnected');
+        setTimeout(startBot, _reconnectDelay);
+        _reconnectDelay = Math.min(_reconnectDelay * 2, 120000);
       }
-      setTimeout(startBot, _reconnectDelay);
-      _reconnectDelay = Math.min(_reconnectDelay * 2, 120000); // dobra até 2 minutos
     }
   });
 
@@ -74,4 +90,4 @@ async function startBot() {
   return sock;
 }
 
-module.exports = { startBot };
+module.exports = { startBot, hasSession };

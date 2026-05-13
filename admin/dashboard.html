@@ -35,14 +35,22 @@
     #bot-status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0}
     #bot-status-dot.connected{background:var(--ok)}
     #bot-status-dot.qr{background:var(--warn);animation:blink 1s ease infinite}
+    #bot-status-dot.needs_connect{background:var(--err)}
     @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
 
-    /* ── QR Banner ── */
-    #qr-banner{background:var(--surface);border:1px solid var(--warn);border-radius:var(--r-lg);margin:16px 20px 0;padding:20px 24px;display:flex;align-items:center;gap:24px}
+    /* ── QR / Connect Banner ── */
+    #qr-banner{background:var(--surface);border-radius:var(--r-lg);margin:16px 20px 0;padding:20px 24px;display:flex;align-items:center;gap:24px}
     #qr-banner.hidden{display:none}
+    #qr-banner.mode-qr{border:1px solid var(--warn)}
+    #qr-banner.mode-connect{border:1px solid var(--err)}
+    #qr-banner-content{display:flex;align-items:center;gap:24px;width:100%}
     #qr-canvas-wrap img{border-radius:10px;display:block}
-    #qr-info .title{font-weight:700;font-size:.95rem;color:var(--warn);margin-bottom:6px}
+    #qr-info .title{font-weight:700;font-size:.95rem;margin-bottom:6px}
     #qr-info .subtitle{font-size:.84rem;color:var(--muted);line-height:1.6}
+    .btn-bot-connect{margin-top:16px;padding:12px 26px;background:linear-gradient(135deg,var(--pri) 0%,var(--pri-d) 100%);border:none;border-radius:10px;color:#fff;font-size:.92rem;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(240,90,26,.35);transition:all var(--ease);display:block}
+    .btn-bot-connect:hover{transform:translateY(-1px);box-shadow:0 7px 20px rgba(240,90,26,.45)}
+    .btn-bot-connect:active{transform:translateY(0)}
+    .btn-bot-connect:disabled{background:var(--surface3);color:var(--muted);cursor:default;transform:none;box-shadow:none}
 
     /* ── Date bar ── */
     .date-bar{display:flex;align-items:center;gap:8px;padding:16px 20px 0;flex-wrap:wrap}
@@ -147,7 +155,8 @@
       .actions{width:100%}
       .actions button{flex:1;padding:11px 10px;font-size:.84rem}
 
-      #qr-banner{flex-direction:column;margin:12px 14px 0;padding:16px;gap:14px;align-items:flex-start}
+      #qr-banner{margin:12px 14px 0;padding:16px}
+      #qr-banner-content{flex-direction:column;gap:14px;align-items:flex-start}
       #qr-canvas-wrap img{width:150px;height:150px}
 
       .new-order-toast{left:14px;right:14px;bottom:16px;text-align:center;border-radius:12px}
@@ -179,15 +188,7 @@
   </nav>
 
   <div id="qr-banner" class="hidden">
-    <div id="qr-canvas-wrap"></div>
-    <div id="qr-info">
-      <div class="title">📱 Conecte o WhatsApp</div>
-      <div class="subtitle">
-        Abra o WhatsApp no celular<br>
-        Toque em <strong>⋮ → Aparelhos conectados → Conectar aparelho</strong><br>
-        e aponte a câmera para este QR Code.
-      </div>
-    </div>
+    <div id="qr-banner-content"></div>
   </div>
 
   <div class="date-bar">
@@ -297,23 +298,61 @@
       const dot = document.getElementById('bot-status-dot');
       const label = document.getElementById('bot-status-label');
       const banner = document.getElementById('qr-banner');
+      const content = document.getElementById('qr-banner-content');
       dot.className = status;
+
+      // sync mobile dot
+      const dotM = document.getElementById('bot-status-dot-m');
+      const labelM = document.getElementById('bot-status-label-m');
+      const mobileColors = { connected:'var(--ok)', qr:'var(--warn)', needs_connect:'var(--err)', disconnected:'var(--muted)' };
+      if (dotM) dotM.style.background = mobileColors[status] || 'var(--muted)';
+
       if (status === 'connected') {
         label.textContent = 'WhatsApp conectado';
+        if (labelM) labelM.textContent = 'WhatsApp conectado';
         banner.classList.add('hidden');
         stopPolling();
       } else if (status === 'qr') {
-        label.textContent = 'Aguardando QR Code';
-        banner.classList.remove('hidden');
-        if (qr) {
-          document.getElementById('qr-canvas-wrap').innerHTML =
-            `<img src="${qr}" width="180" height="180" alt="QR Code WhatsApp">`;
-        }
+        label.textContent = 'Aguardando scan do QR';
+        if (labelM) labelM.textContent = 'Aguardando scan do QR';
+        banner.className = 'mode-qr';
+        content.innerHTML = `
+          <div id="qr-canvas-wrap">${qr ? `<img src="${qr}" width="180" height="180" alt="QR Code WhatsApp">` : '<div style="width:180px;height:180px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.85rem">Gerando...</div>'}</div>
+          <div id="qr-info">
+            <div class="title" style="color:var(--warn)">📱 Escaneie o QR Code</div>
+            <div class="subtitle">
+              Abra o WhatsApp no celular<br>
+              Toque em <strong>⋮ → Aparelhos conectados → Conectar aparelho</strong><br>
+              e aponte a câmera para este QR Code.
+            </div>
+          </div>`;
+      } else if (status === 'needs_connect') {
+        label.textContent = 'Bot desconectado';
+        if (labelM) labelM.textContent = 'Bot desconectado';
+        banner.className = 'mode-connect';
+        content.innerHTML = `
+          <div id="qr-info">
+            <div class="title" style="color:var(--err)">🔴 WhatsApp não conectado</div>
+            <div class="subtitle" style="margin-top:8px">
+              Nenhuma sessão ativa. Clique no botão abaixo para iniciar a conexão e gerar o QR Code.<br>
+              <span style="color:var(--warn);font-size:.8rem">⚠️ Só gere o QR quando estiver pronto para escanear — evita bloqueios.</span>
+            </div>
+            <button class="btn-bot-connect" id="btn-bot-connect" onclick="connectBot()">📱 Conectar WhatsApp</button>
+          </div>`;
       } else {
         label.textContent = 'Desconectado';
+        if (labelM) labelM.textContent = 'Desconectado';
         banner.classList.add('hidden');
         startPolling();
       }
+    }
+
+    async function connectBot() {
+      const btn = document.getElementById('btn-bot-connect');
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ Conectando...'; }
+      try {
+        await fetch('/api/admin/bot/connect', { method: 'POST', headers: h() });
+      } catch { if (btn) { btn.disabled = false; btn.textContent = '📱 Conectar WhatsApp'; } }
     }
 
     async function fetchBotStatus() {
