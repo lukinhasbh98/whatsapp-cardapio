@@ -9,6 +9,7 @@ const fs = require('fs');
 const { router: authRouter } = require('./routes/auth');
 const adminRouter = require('./routes/admin');
 const deliveryRouter = require('./routes/delivery');
+const customerRouter = require('./routes/customer');
 const { router: webhookRouter, init: initWebhook } = require('./routes/webhook');
 const { init: initNotifier } = require('../services/notifier');
 
@@ -31,6 +32,7 @@ function createServer(sock) {
   app.use('/api/auth', authRouter);
   app.use('/api/admin', adminRouter);
   app.use('/api/delivery', deliveryRouter);
+  app.use('/api/customer', customerRouter);
   app.use('/uploads', express.static(uploadsDir));
   app.use(express.static(path.join(__dirname, '../../admin')));
 
