@@ -62,13 +62,13 @@ async function startBot() {
     }
   });
 
-  sock.ev.on('messages.upsert', async ({ messages, type }) => {
+  sock.ev.on('messages.upsert', ({ messages, type }) => {
     if (type !== 'notify') return;
-    for (const msg of messages) {
-      if (msg.key.fromMe) continue;
-      if (!msg.message) continue;
-      await handleMessage(sock, msg).catch(err => console.error('Message handler error:', err));
-    }
+    Promise.all(
+      messages
+        .filter(msg => !msg.key.fromMe && msg.message)
+        .map(msg => handleMessage(sock, msg).catch(err => console.error('Message handler error:', err)))
+    );
   });
 
   return sock;
