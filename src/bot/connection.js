@@ -36,11 +36,12 @@ async function startBot() {
     version,
     auth: state,
     logger: pino({ level: 'silent' }),
-    browser: Browsers.macOS('Safari'),
+    browser: Browsers.ubuntu('Chrome'),
     connectTimeoutMs: 60000,
-    keepAliveIntervalMs: 30000,
+    keepAliveIntervalMs: 25000,
     markOnlineOnConnect: false,
-    retryRequestDelayMs: 2000,
+    retryRequestDelayMs: 3000,
+    defaultQueryTimeoutMs: undefined,
   });
 
   _connecting = false;
