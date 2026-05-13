@@ -26,11 +26,11 @@ async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState(SESSIONS_PATH);
   let version;
   try {
-    ({ version } = await fetchLatestWAWebVersion());
-  } catch {
     ({ version } = await fetchLatestBaileysVersion());
+  } catch {
+    version = [2, 3000, 1015901307];
   }
-  console.log('📡 Versão WA Web:', version?.join('.'));
+  console.log('📡 Versão Baileys:', version?.join('.'));
 
   const sock = makeWASocket({
     version,
