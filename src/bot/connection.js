@@ -65,22 +65,24 @@ async function startBot() {
     if (connection === 'close') {
       const reason = lastDisconnect?.error?.output?.statusCode;
       const loggedOut = reason === DisconnectReason.loggedOut;
-      const badSession = loggedOut || [403, 405, 500].includes(reason);
+      const hadSession = hasSession();
+      // 403/405/500 só são fatais se havia sessão (logout remoto). Sem sessão = bloqueio temporário.
+      const badSession = loggedOut || (hadSession && [403, 405, 500].includes(reason));
       console.log('⚠️ Conexão encerrada. Motivo:', reason, '| Erro:', lastDisconnect?.error?.message);
 
       if (badSession) {
-        // Só apaga sessão se havia arquivos (ex: logout real). 405 sem sessão = bloqueio temporário.
-        const hadSession = fs.readdirSync(SESSIONS_PATH).some(f => f.endsWith('.json'));
-        if (hadSession) {
-          fs.rmSync(SESSIONS_PATH, { recursive: true, force: true });
-          fs.mkdirSync(SESSIONS_PATH, { recursive: true });
-          console.log('🗑️ Sessão removida. Clique em "Conectar" no painel para gerar novo QR Code.');
-        } else {
-          console.log('⚠️ Conexão recusada pelo WhatsApp (bloqueio temporário). Tente novamente em alguns minutos.');
-        }
+        fs.rmSync(SESSIONS_PATH, { recursive: true, force: true });
+        fs.mkdirSync(SESSIONS_PATH, { recursive: true });
+        console.log('🗑️ Sessão removida. Clique em "Conectar" no painel para gerar novo QR Code.');
+        _connecting = false;
+        notifier.emitBotStatus('needs_connect');
+      } else if (!hadSession) {
+        // Sem sessão: não há QR para exibir sem nova tentativa manual — não auto-reiniciar.
+        console.log('⚠️ Conexão falhou antes do QR Code (motivo:', reason, '). Clique em "Conectar" para tentar novamente.');
         _connecting = false;
         notifier.emitBotStatus('needs_connect');
       } else {
+        // Tem sessão, queda temporária → reconecta automaticamente
         console.log('Reconectando em', _reconnectDelay / 1000, 's...');
         notifier.emitBotStatus('disconnected');
         setTimeout(startBot, _reconnectDelay);
@@ -101,4 +103,6 @@ async function startBot() {
   return sock;
 }
 
-module.exports = { startBot, hasSession };
+function isConnecting() { return _connecting; }
+
+module.exports = { startBot, hasSession, isConnecting };

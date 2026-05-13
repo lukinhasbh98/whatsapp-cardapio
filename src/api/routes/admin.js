@@ -147,7 +147,10 @@ router.get('/bot-status', authMiddleware, (req, res) => {
 });
 
 router.post('/bot/connect', authMiddleware, async (req, res) => {
-  const { startBot, hasSession } = require('../../bot/connection');
+  const { startBot, hasSession, isConnecting } = require('../../bot/connection');
+  if (isConnecting()) {
+    return res.json({ ok: true, message: 'Já está tentando conectar, aguarde...' });
+  }
   if (hasSession()) {
     return res.json({ ok: true, message: 'Sessão já existe, reconectando...' });
   }
