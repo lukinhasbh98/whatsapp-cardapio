@@ -112,6 +112,17 @@ router.post('/orders', customerAuthMiddleware, async (req, res) => {
         console.log('[PIX] Pagamento criado:', pixData.id);
       })
       .catch(err => console.error('[PIX] Erro ao criar pagamento MP:', err.message));
+
+    // Cancela automaticamente após 10 minutos se ainda aguardando pagamento
+    setTimeout(() => {
+      const current = db.prepare('SELECT status FROM orders WHERE id = ?').get(orderId);
+      if (current && current.status === 'awaiting_payment') {
+        db.prepare("UPDATE orders SET status = 'cancelled', updated_at = datetime('now','localtime') WHERE id = ?").run(orderId);
+        const { emitOrderUpdate } = require('../../services/notifier');
+        emitOrderUpdate(orderId, 'cancelled');
+        console.log(`[PIX] Pedido #${orderId} cancelado por timeout de 10 minutos.`);
+      }
+    }, 10 * 60 * 1000);
   }
 });
 
