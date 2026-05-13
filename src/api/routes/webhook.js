@@ -6,11 +6,11 @@ const router = express.Router();
 let _sock = null;
 function init(sock) { _sock = sock; }
 
-router.post('/mercadopago', express.raw({ type: 'application/json' }), async (req, res) => {
+router.post('/mercadopago', async (req, res) => {
   res.sendStatus(200); // Acknowledge immediately
 
   try {
-    const body = JSON.parse(req.body.toString());
+    const body = req.body;
     if (body.type !== 'payment' || !body.data?.id) return;
 
     const paymentId = body.data.id;
