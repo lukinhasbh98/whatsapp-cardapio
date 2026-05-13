@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('../../database/db');
 const { customerAuthMiddleware } = require('./auth');
 const { notifyAdmin } = require('../../services/notifier');
+const { createPixPayment } = require('../../services/mercadopago');
 const router = express.Router();
 
 // ── Public: business settings ────────────────────────────────────────────────
@@ -96,9 +97,22 @@ router.post('/orders', customerAuthMiddleware, async (req, res) => {
   db.prepare('UPDATE customers SET last_address = ?, last_order_id = ? WHERE id = ?')
     .run(cleanAddr, orderId, req.customer.id);
 
+  // Gera pagamento PIX real no Mercado Pago
+  let pixQrCode = null, pixQrCodeBase64 = null;
+  if (payment_method === 'pix') {
+    try {
+      const pixData = await createPixPayment(total, orderId, customer.phone);
+      db.prepare('UPDATE orders SET mp_payment_id = ? WHERE id = ?').run(String(pixData.id), orderId);
+      pixQrCode       = pixData.qrCode;
+      pixQrCodeBase64 = pixData.qrCodeBase64;
+    } catch (err) {
+      console.error('[PIX] Erro ao criar pagamento MP:', err.message);
+    }
+  }
+
   await notifyAdmin(null, orderId).catch(console.error);
 
-  res.json({ orderId, orderNum: String(orderId).padStart(4, '0'), status, total, deliveryFee });
+  res.json({ orderId, orderNum: String(orderId).padStart(4, '0'), status, total, deliveryFee, pixQrCode, pixQrCodeBase64 });
 });
 
 // ── Authenticated: order history ─────────────────────────────────────────────

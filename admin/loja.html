@@ -366,14 +366,10 @@
         <div class="fg"><label>Troco para quanto?</label><input id="co-change" type="number" placeholder="Ex: 50" inputmode="decimal" min="0"></div>
       </div>
       <div id="pix-extra" class="hidden">
-        <div class="pix-box" style="margin-top:12px">
-          <div>
-            <div style="font-size:.74rem;color:var(--muted);margin-bottom:3px">Chave PIX:</div>
-            <div class="pix-key" id="pix-key-val">—</div>
-          </div>
-          <button class="copy-btn" onclick="copyPix()">Copiar</button>
+        <div class="pix-box" style="margin-top:12px;flex-direction:column;align-items:flex-start;gap:6px">
+          <div style="font-size:.82rem;font-weight:700;color:var(--pri)">💸 Pagamento via PIX</div>
+          <div style="font-size:.8rem;color:var(--muted);line-height:1.5">O QR Code e o código Copia e Cola serão gerados automaticamente após confirmar o pedido. Você terá 10 minutos para pagar.</div>
         </div>
-        <p style="font-size:.78rem;color:var(--muted);margin-top:8px;line-height:1.4">Após pagar, envie o comprovante via WhatsApp para agilizar a confirmação.</p>
       </div>
     </div>
     <div class="co-section" id="co-summary"></div>
@@ -397,6 +393,7 @@
   </div>
 
   <div class="confirm-card" id="confirm-info"></div>
+  <div class="confirm-card" id="confirm-pix" style="display:none"></div>
   <div class="confirm-card" id="confirm-items"></div>
 
   <button class="btn-pri" style="max-width:440px;margin-bottom:10px" onclick="backToMenu()">Ver Cardápio</button>
@@ -1009,7 +1006,24 @@ function showConfirmScreen(data, confirmedCart) {
     <div class="confirm-info-row"><span class="k">Número</span><span class="v">#${data.orderNum}</span></div>
     <div class="confirm-info-row"><span class="k">Tempo estimado</span><span class="v">${est}</span></div>
     <div class="confirm-info-row"><span class="k">Total</span><span class="v">${fmt(data.total)}</span></div>
-    ${data.status === 'awaiting_payment' ? '<div class="confirm-info-row"><span class="k" style="color:#92400e">⚠️ Aguardando pagamento PIX</span></div>' : ''}`;
+    ${data.status === 'awaiting_payment' ? '<div class="confirm-info-row"><span class="k" style="color:var(--warn)">⏳ Aguardando pagamento PIX</span></div>' : ''}`;
+
+  // Bloco PIX com QR Code e Copia e Cola
+  const pixBlock = document.getElementById('confirm-pix');
+  if (data.pixQrCode && data.status === 'awaiting_payment') {
+    pixBlock.innerHTML = `
+      <h4 style="margin-bottom:12px">💸 Pague agora via PIX</h4>
+      ${data.pixQrCodeBase64 ? `<div style="text-align:center;margin-bottom:16px"><img src="data:image/png;base64,${data.pixQrCodeBase64}" style="width:180px;height:180px;border-radius:10px;border:1px solid var(--border)" alt="QR Code PIX"></div>` : ''}
+      <div style="font-size:.78rem;color:var(--muted);margin-bottom:6px;font-weight:600">Copia e Cola:</div>
+      <div class="pix-box">
+        <div class="pix-key" id="pix-cc-val" style="font-size:.75rem">${data.pixQrCode}</div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('pix-cc-val').textContent).then(()=>showToast('✅ Código copiado!'))">Copiar</button>
+      </div>
+      <p style="font-size:.78rem;color:var(--muted);margin-top:10px;line-height:1.5">⚠️ Você tem <strong>10 minutos</strong> para pagar. O pedido será cancelado automaticamente se o pagamento não for identificado.</p>`;
+    pixBlock.style.display = 'block';
+  } else {
+    pixBlock.style.display = 'none';
+  }
 
   const deliveryFee = parseFloat(settings.delivery_fee || '5');
   const itemsHtml = (confirmedCart || []).map(i => {
