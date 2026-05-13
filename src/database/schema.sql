@@ -88,7 +88,3 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
   ('pix_key', ''),
   ('closed_message', 'Estamos fechados no momento. Voltamos às {open}. Até logo! 👋');
 
-INSERT OR IGNORE INTO categories (name, emoji, sort_order) VALUES
-  ('Pratos Principais', '🍽️', 1),
-  ('Bebidas', '🥤', 2),
-  ('Acréscimos', '➕', 3);

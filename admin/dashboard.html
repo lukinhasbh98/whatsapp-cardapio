@@ -3,130 +3,177 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pedidos — Cardápio Bot</title>
+  <title>Pedidos — Painel Admin</title>
   <script src="/socket.io/socket.io.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --pri:#f05a1a;--pri-d:#d44d12;--pri-l:#f05a1a22;
+      --bg:#0b0d12;--surface:#14171f;--surface2:#1c2030;--surface3:#232838;
+      --txt:#e4e8f0;--muted:#7a8499;--border:#252b3a;
+      --ok:#22c55e;--ok-l:#22c55e22;--warn:#f59e0b;--warn-l:#f59e0b22;
+      --info:#3b82f6;--info-l:#3b82f622;--err:#ef4444;--err-l:#ef444422;
+      --purple:#a855f7;--purple-l:#a855f722;
+      --r:12px;--r-lg:16px;--sh:0 4px 20px rgba(0,0,0,.3);--ease:.2s ease
+    }
+    body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--txt);-webkit-font-smoothing:antialiased}
 
     /* ── Nav ── */
-    nav { background: #161b22; border-bottom: 1px solid #30363d; padding: 12px 24px; display: flex; align-items: center; gap: 20px; position: relative; }
-    nav .logo { font-size: 1.4rem; font-weight: 700; color: #58a6ff; flex-shrink: 0; }
-    .nav-toggle { display: none; background: none; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; padding: 6px 11px; cursor: pointer; font-size: 1.2rem; line-height: 1; margin-left: auto; }
-    .nav-menu { display: flex; align-items: center; gap: 20px; margin-left: auto; }
-    .nav-menu a { color: #8b949e; text-decoration: none; font-size: 0.9rem; }
-    .nav-menu a:hover, .nav-menu a.active { color: #e6edf3; }
-    .nav-menu .nav-btn { background: none; border: 1px solid #30363d; border-radius: 6px; color: #8b949e; padding: 6px 12px; cursor: pointer; font-size: 0.9rem; }
-    .nav-status { font-size: 0.82rem; color: #8b949e; white-space: nowrap; }
-
-    /* ── Stats ── */
-    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 24px; }
-    .stat { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
-    .stat .label { font-size: 0.8rem; color: #8b949e; margin-bottom: 2px; }
-    .stat .period { font-size: 0.72rem; color: #484f58; margin-bottom: 6px; }
-    .stat .value { font-size: 1.8rem; font-weight: 700; color: #58a6ff; }
-
-    /* ── Date bar ── */
-    .date-bar { display: flex; align-items: center; gap: 10px; padding: 16px 24px 0; flex-wrap: wrap; }
-    .date-bar label { font-size: 0.82rem; color: #8b949e; white-space: nowrap; }
-    .date-bar input[type=date] { background: #161b22; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; padding: 5px 10px; font-size: 0.85rem; cursor: pointer; }
-    .date-bar input[type=date]:focus { outline: none; border-color: #58a6ff; }
-    .date-shortcut { padding: 5px 12px; border-radius: 20px; border: 1px solid #30363d; background: none; color: #8b949e; cursor: pointer; font-size: 0.82rem; white-space: nowrap; }
-    .date-shortcut.active { background: #30363d; color: #e6edf3; }
-
-    /* ── Orders section ── */
-    .orders-section { padding: 0 24px 24px; }
-    .filter-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-    .filter-bar button { padding: 6px 14px; border-radius: 20px; border: 1px solid #30363d; background: none; color: #8b949e; cursor: pointer; font-size: 0.85rem; white-space: nowrap; }
-    .filter-bar button.active { background: #58a6ff; border-color: #58a6ff; color: #0d1117; }
-
-    /* ── Order card ── */
-    .order-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
-    .order-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 8px; }
-    .order-num { font-weight: 700; font-size: 1rem; }
-    .order-time { font-size: 0.78rem; color: #8b949e; flex-shrink: 0; }
-    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
-    .badge-awaiting_payment { background: #e3b34122; color: #e3b341; }
-    .badge-confirmed { background: #58a6ff22; color: #58a6ff; }
-    .badge-preparing { background: #f0883e22; color: #f0883e; }
-    .badge-out_for_delivery { background: #a371f722; color: #a371f7; }
-    .badge-delivered { background: #3fb95022; color: #3fb950; }
-    .badge-cancelled { background: #f8514922; color: #f85149; }
-    .order-info { font-size: 0.85rem; color: #8b949e; margin-bottom: 8px; line-height: 1.5; }
-    .order-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-    .order-total { font-weight: 700; color: #3fb950; font-size: 1rem; flex-shrink: 0; }
-    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
-    .actions button { padding: 8px 14px; border-radius: 6px; border: none; cursor: pointer; font-size: 0.82rem; font-weight: 600; }
-    .btn-confirm { background: #238636; color: #fff; }
-    .btn-prepare { background: #f0883e; color: #fff; }
-    .btn-deliver { background: #a371f7; color: #fff; }
-    .btn-done { background: #3fb950; color: #0d1117; }
-    .btn-cancel { background: #f85149; color: #fff; }
-
-    /* ── QR Banner ── */
-    #qr-banner { background: #161b22; border: 1px solid #f0883e55; border-radius: 10px; margin: 20px 24px 0; padding: 20px 24px; display: flex; align-items: center; gap: 24px; }
-    #qr-banner.hidden { display: none; }
-    #qr-canvas-wrap img { border-radius: 8px; display: block; }
-    #qr-info .title { font-weight: 700; font-size: 1rem; color: #f0883e; margin-bottom: 6px; }
-    #qr-info .subtitle { font-size: 0.85rem; color: #8b949e; line-height: 1.5; }
+    nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;gap:0;position:relative;height:56px}
+    nav .logo{font-size:1.1rem;font-weight:800;color:var(--pri);flex-shrink:0;letter-spacing:-.01em;padding-right:24px;border-right:1px solid var(--border);margin-right:4px}
+    .nav-toggle{display:none;background:none;border:1px solid var(--border);border-radius:8px;color:var(--txt);padding:6px 10px;cursor:pointer;font-size:1.1rem;line-height:1;margin-left:auto}
+    .nav-menu{display:flex;align-items:center;gap:2px;margin-left:8px;flex:1}
+    .nav-menu a{color:var(--muted);text-decoration:none;font-size:.875rem;font-weight:500;padding:7px 14px;border-radius:8px;transition:all var(--ease);white-space:nowrap}
+    .nav-menu a:hover{color:var(--txt);background:var(--surface2)}
+    .nav-menu a.active{color:var(--txt);background:var(--surface3);font-weight:600}
+    .nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+    .nav-status{font-size:.8rem;color:var(--muted);white-space:nowrap;display:flex;align-items:center;gap:6px;background:var(--surface2);padding:6px 12px;border-radius:8px;border:1px solid var(--border)}
+    .nav-btn{background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);padding:7px 14px;cursor:pointer;font-size:.875rem;font-weight:500;transition:all var(--ease)}
+    .nav-btn:hover{color:var(--txt);border-color:var(--muted)}
 
     /* ── Bot status dot ── */
-    #bot-status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #8b949e; margin-right: 6px; vertical-align: middle; flex-shrink: 0; }
-    #bot-status-dot.connected { background: #3fb950; }
-    #bot-status-dot.qr { background: #f0883e; }
+    #bot-status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0}
+    #bot-status-dot.connected{background:var(--ok)}
+    #bot-status-dot.qr{background:var(--warn);animation:blink 1s ease infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+
+    /* ── QR Banner ── */
+    #qr-banner{background:var(--surface);border:1px solid var(--warn);border-radius:var(--r-lg);margin:16px 20px 0;padding:20px 24px;display:flex;align-items:center;gap:24px}
+    #qr-banner.hidden{display:none}
+    #qr-canvas-wrap img{border-radius:10px;display:block}
+    #qr-info .title{font-weight:700;font-size:.95rem;color:var(--warn);margin-bottom:6px}
+    #qr-info .subtitle{font-size:.84rem;color:var(--muted);line-height:1.6}
+
+    /* ── Date bar ── */
+    .date-bar{display:flex;align-items:center;gap:8px;padding:16px 20px 0;flex-wrap:wrap}
+    .date-bar label{font-size:.82rem;color:var(--muted);white-space:nowrap;display:flex;align-items:center;gap:6px}
+    .date-bar input[type=date]{background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--txt);padding:6px 10px;font-size:.84rem;cursor:pointer;transition:border-color var(--ease)}
+    .date-bar input[type=date]:focus{outline:none;border-color:var(--pri)}
+    .date-shortcut{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;font-size:.82rem;white-space:nowrap;transition:all var(--ease);font-weight:500}
+    .date-shortcut:hover{border-color:var(--muted);color:var(--txt)}
+    .date-shortcut.active{background:var(--surface3);border-color:var(--border);color:var(--txt);font-weight:600}
+
+    /* ── Stats ── */
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 20px}
+    .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;position:relative;overflow:hidden;transition:border-color var(--ease)}
+    .stat:hover{border-color:var(--border)}
+    .stat::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px}
+    .stat:nth-child(1)::before{background:var(--pri)}
+    .stat:nth-child(2)::before{background:var(--ok)}
+    .stat:nth-child(3)::before{background:var(--warn)}
+    .stat:nth-child(4)::before{background:var(--purple)}
+    .stat .label{font-size:.78rem;color:var(--muted);margin-bottom:3px;font-weight:500;letter-spacing:.02em}
+    .stat .period{font-size:.7rem;color:var(--border);margin-bottom:8px}
+    .stat .value{font-size:1.85rem;font-weight:800;letter-spacing:-.02em}
+    .stat:nth-child(1) .value{color:var(--pri)}
+    .stat:nth-child(2) .value{color:var(--ok)}
+    .stat:nth-child(3) .value{color:var(--warn)}
+    .stat:nth-child(4) .value{color:var(--purple)}
+
+    /* ── Orders section ── */
+    .orders-section{padding:0 20px 24px}
+    .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-top:4px}
+    .section-title{font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+    .filter-bar{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+    .filter-bar button{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;font-size:.82rem;white-space:nowrap;transition:all var(--ease);font-weight:500}
+    .filter-bar button:hover{border-color:var(--muted);color:var(--txt)}
+    .filter-bar button.active{background:var(--pri);border-color:var(--pri);color:#fff;font-weight:600}
+
+    /* ── Order card ── */
+    .order-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-bottom:10px;transition:border-color var(--ease),box-shadow var(--ease)}
+    .order-card:hover{border-color:var(--surface3);box-shadow:0 4px 20px rgba(0,0,0,.25)}
+    .order-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;gap:8px}
+    .order-num{font-weight:800;font-size:1rem;letter-spacing:-.01em}
+    .order-time{font-size:.76rem;color:var(--muted);flex-shrink:0;margin-top:2px}
+    .badge{display:inline-flex;align-items:center;padding:4px 11px;border-radius:50px;font-size:.74rem;font-weight:700;margin-left:10px}
+    .badge-awaiting_payment{background:var(--warn-l);color:var(--warn)}
+    .badge-confirmed{background:var(--info-l);color:var(--info)}
+    .badge-preparing{background:var(--pri-l);color:var(--pri)}
+    .badge-out_for_delivery{background:var(--purple-l);color:var(--purple)}
+    .badge-delivered{background:var(--ok-l);color:var(--ok)}
+    .badge-cancelled{background:var(--err-l);color:var(--err)}
+    .order-info{font-size:.84rem;color:var(--muted);margin-bottom:7px;line-height:1.5;display:flex;align-items:flex-start;gap:6px}
+    .order-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-top:12px;border-top:1px solid var(--border);margin-top:4px}
+    .order-total{font-weight:800;color:var(--ok);font-size:1.05rem;flex-shrink:0}
+    .actions{display:flex;gap:6px;flex-wrap:wrap}
+    .actions button{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.82rem;font-weight:700;transition:all var(--ease);letter-spacing:.01em}
+    .btn-confirm{background:var(--info-l);color:var(--info);border:1px solid var(--info)}
+    .btn-confirm:hover{background:var(--info);color:#fff}
+    .btn-prepare{background:var(--pri-l);color:var(--pri);border:1px solid var(--pri)}
+    .btn-prepare:hover{background:var(--pri);color:#fff}
+    .btn-deliver{background:var(--purple-l);color:var(--purple);border:1px solid var(--purple)}
+    .btn-deliver:hover{background:var(--purple);color:#fff}
+    .btn-done{background:var(--ok-l);color:var(--ok);border:1px solid var(--ok)}
+    .btn-done:hover{background:var(--ok);color:#fff}
+    .btn-cancel{background:var(--err-l);color:var(--err);border:1px solid var(--err)}
+    .btn-cancel:hover{background:var(--err);color:#fff}
 
     /* ── Toast ── */
-    .new-order-toast { position: fixed; bottom: 24px; right: 24px; background: #238636; color: #fff; padding: 14px 20px; border-radius: 8px; font-weight: 600; display: none; z-index: 999; }
+    .new-order-toast{position:fixed;bottom:24px;right:24px;background:var(--ok);color:#fff;padding:14px 22px;border-radius:12px;font-weight:700;font-size:.92rem;display:none;z-index:999;box-shadow:0 8px 30px rgba(34,197,94,.35);animation:slideUp .3s ease}
+    @keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+    /* ── Empty state ── */
+    .empty-state{text-align:center;color:var(--muted);padding:56px 20px;font-size:.9rem}
+    .empty-state-icon{font-size:3rem;margin-bottom:12px;opacity:.5}
 
     /* ── Mobile ── */
-    @media (max-width: 767px) {
-      nav { padding: 12px 16px; }
-      .nav-toggle { display: block; }
-      .nav-menu { display: none; flex-direction: column; align-items: stretch; gap: 0; position: absolute; top: 100%; left: 0; right: 0; background: #161b22; border-bottom: 2px solid #30363d; z-index: 999; margin: 0; padding: 4px 0; }
-      .nav-menu.open { display: flex; }
-      .nav-menu a, .nav-menu .nav-btn { display: block; padding: 14px 20px; color: #8b949e; font-size: 1rem; border: none; border-bottom: 1px solid #21262d; text-decoration: none; text-align: left; background: none; cursor: pointer; width: 100%; }
-      .nav-menu a.active { color: #e6edf3; background: #21262d; }
-      .nav-status { display: block; padding: 12px 20px; border-bottom: 1px solid #21262d; font-size: 0.9rem; }
+    @media(max-width:767px){
+      nav{padding:0 14px;height:52px}
+      nav .logo{padding-right:14px;font-size:1rem}
+      .nav-toggle{display:block}
+      .nav-menu{display:none;flex-direction:column;align-items:stretch;gap:0;position:absolute;top:52px;left:0;right:0;background:var(--surface);border-bottom:1px solid var(--border);z-index:999;margin:0;padding:8px 0}
+      .nav-menu.open{display:flex}
+      .nav-menu a{border-radius:0;padding:13px 20px;border-bottom:1px solid var(--border)}
+      .nav-right{display:none}
+      .nav-menu .nav-status-mobile{display:flex;align-items:center;gap:8px;padding:12px 20px;border-bottom:1px solid var(--border);font-size:.88rem;color:var(--muted)}
+      .nav-menu .nav-btn-mobile{display:block;padding:13px 20px;color:var(--muted);font-size:.9rem;background:none;border:none;cursor:pointer;text-align:left;width:100%;border-bottom:1px solid var(--border)}
 
-      .stats { grid-template-columns: repeat(2, 1fr); padding: 16px; gap: 10px; }
-      .stat .value { font-size: 1.4rem; }
-      .stat { padding: 12px; }
+      .stats{grid-template-columns:repeat(2,1fr);padding:12px 14px;gap:10px}
+      .stat{padding:14px 16px}
+      .stat .value{font-size:1.5rem}
 
-      .date-bar { padding: 12px 16px 0; gap: 6px; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-      .date-bar::-webkit-scrollbar { display: none; }
-      .date-bar input[type=date] { width: 130px; padding: 5px 8px; font-size: 14px; }
+      .date-bar{padding:12px 14px 0;gap:6px;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+      .date-bar::-webkit-scrollbar{display:none}
+      .date-bar input[type=date]{width:130px;font-size:13px}
 
-      .orders-section { padding: 0 16px 32px; }
-      .filter-bar { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; -webkit-overflow-scrolling: touch; scrollbar-width: none; margin-bottom: 12px; }
-      .filter-bar::-webkit-scrollbar { display: none; }
-      .filter-bar button { flex-shrink: 0; padding: 7px 14px; font-size: 0.82rem; }
+      .orders-section{padding:0 14px 32px}
+      .filter-bar{overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+      .filter-bar::-webkit-scrollbar{display:none}
+      .filter-bar button{flex-shrink:0}
 
-      .order-card { padding: 14px; }
-      .order-header { flex-wrap: wrap; }
-      .order-time { font-size: 0.75rem; }
-      .order-info { font-size: 0.82rem; }
-      .order-footer { flex-direction: column; align-items: flex-start; gap: 10px; }
-      .actions { width: 100%; }
-      .actions button { flex: 1; padding: 11px 10px; font-size: 0.85rem; min-width: 0; }
-      .order-total { font-size: 1.05rem; }
+      .order-card{padding:14px}
+      .order-header{flex-wrap:wrap}
+      .order-footer{flex-direction:column;align-items:flex-start;gap:10px}
+      .actions{width:100%}
+      .actions button{flex:1;padding:11px 10px;font-size:.84rem}
 
-      #qr-banner { flex-direction: column; margin: 12px 16px 0; padding: 16px; gap: 14px; align-items: flex-start; }
-      #qr-canvas-wrap img { width: 150px; height: 150px; }
-      #qr-info .subtitle { font-size: 0.82rem; }
+      #qr-banner{flex-direction:column;margin:12px 14px 0;padding:16px;gap:14px;align-items:flex-start}
+      #qr-canvas-wrap img{width:150px;height:150px}
 
-      .new-order-toast { left: 16px; right: 16px; bottom: 20px; text-align: center; border-radius: 10px; }
+      .new-order-toast{left:14px;right:14px;bottom:16px;text-align:center;border-radius:12px}
     }
   </style>
 </head>
 <body>
   <nav>
-    <span class="logo">🍴 Cardápio Bot</span>
+    <span class="logo">🍽️ Cardápio Bot</span>
     <button class="nav-toggle" onclick="document.getElementById('nav-menu').classList.toggle('open')">☰</button>
     <div class="nav-menu" id="nav-menu">
       <a href="/dashboard.html" class="active">Pedidos</a>
       <a href="/menu.html">Cardápio</a>
       <a href="/settings.html">Configurações</a>
-      <span class="nav-status"><span id="bot-status-dot"></span><span id="bot-status-label">Verificando...</span></span>
+      <!-- mobile only -->
+      <div class="nav-status-mobile" style="display:none">
+        <span id="bot-status-dot-m" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--muted)"></span>
+        <span id="bot-status-label-m">Verificando...</span>
+      </div>
+      <button class="nav-btn-mobile" style="display:none" onclick="logout()">Sair</button>
+    </div>
+    <div class="nav-right">
+      <div class="nav-status">
+        <span id="bot-status-dot"></span>
+        <span id="bot-status-label">Verificando...</span>
+      </div>
       <button class="nav-btn" onclick="logout()">Sair</button>
     </div>
   </nav>
@@ -154,10 +201,26 @@
   </div>
 
   <div class="stats">
-    <div class="stat"><div class="label">Pedidos</div><div class="period" id="stat-period">hoje</div><div class="value" id="stat-orders">–</div></div>
-    <div class="stat"><div class="label">Faturamento</div><div class="period" id="stat-period2">hoje</div><div class="value" id="stat-revenue">–</div></div>
-    <div class="stat"><div class="label">Em aberto</div><div class="period"></div><div class="value" id="stat-pending">–</div></div>
-    <div class="stat"><div class="label">Avaliação média</div><div class="period"></div><div class="value" id="stat-rating">–</div></div>
+    <div class="stat">
+      <div class="label">Pedidos</div>
+      <div class="period" id="stat-period">hoje</div>
+      <div class="value" id="stat-orders">–</div>
+    </div>
+    <div class="stat">
+      <div class="label">Faturamento</div>
+      <div class="period" id="stat-period2">hoje</div>
+      <div class="value" id="stat-revenue">–</div>
+    </div>
+    <div class="stat">
+      <div class="label">Em aberto</div>
+      <div class="period">&nbsp;</div>
+      <div class="value" id="stat-pending">–</div>
+    </div>
+    <div class="stat">
+      <div class="label">Avaliação média</div>
+      <div class="period">&nbsp;</div>
+      <div class="value" id="stat-rating">–</div>
+    </div>
   </div>
 
   <div class="orders-section">
@@ -309,19 +372,22 @@
     function renderOrders() {
       const list = document.getElementById('orders-list');
       const filtered = currentFilter ? allOrders.filter(o => o.status === currentFilter) : allOrders;
-      if (!filtered.length) { list.innerHTML = '<p style="color:#8b949e;text-align:center;padding:40px">Nenhum pedido.</p>'; return; }
+      if (!filtered.length) {
+        list.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div>Nenhum pedido encontrado.</div>`;
+        return;
+      }
       list.innerHTML = filtered.map(o => `
         <div class="order-card" id="order-${o.id}">
           <div class="order-header">
             <div>
               <span class="order-num">#${String(o.id).padStart(4,'0')}</span>
-              <span class="badge badge-${o.status}" style="margin-left:10px">${statusLabels[o.status]||o.status}</span>
+              <span class="badge badge-${o.status}">${statusLabels[o.status]||o.status}</span>
             </div>
             <span class="order-time">${o.created_at}</span>
           </div>
-          <div class="order-info">👤 ${o.customer_name || '—'} &nbsp;|&nbsp; 📱 ${fmtPhone(o.customer_phone)}</div>
-          <div class="order-info">📍 ${o.address}</div>
-          <div class="order-info">💳 ${{pix:'PIX',cash:'Dinheiro',card:'Cartão'}[o.payment_method]||o.payment_method}${o.change_amount>0?' &nbsp;|&nbsp; Troco: '+fmt(o.change_amount):''}</div>
+          <div class="order-info">👤 <span>${o.customer_name || '—'} &nbsp;·&nbsp; 📱 ${fmtPhone(o.customer_phone)}</span></div>
+          <div class="order-info">📍 <span>${o.address}</span></div>
+          <div class="order-info">💳 <span>${{pix:'PIX',cash:'Dinheiro',card:'Cartão'}[o.payment_method]||o.payment_method}${o.change_amount>0?' &nbsp;·&nbsp; Troco: '+fmt(o.change_amount):''}</span></div>
           <div class="order-footer">
             <span class="order-total">${fmt(o.total)}</span>
             <div class="actions">${getActions(o)}</div>
@@ -331,10 +397,11 @@
 
     function getActions(o) {
       const btns = [];
-      if (o.status === 'confirmed') btns.push(`<button class="btn-prepare" onclick="setStatus(${o.id},'preparing')">Preparando</button>`);
-      if (o.status === 'preparing') btns.push(`<button class="btn-deliver" onclick="setStatus(${o.id},'out_for_delivery')">Saiu p/ entrega</button>`);
-      if (o.status === 'out_for_delivery') btns.push(`<button class="btn-done" onclick="setStatus(${o.id},'delivered')">Entregue</button>`);
-      if (!['delivered','cancelled'].includes(o.status)) btns.push(`<button class="btn-cancel" onclick="setStatus(${o.id},'cancelled')">Cancelar</button>`);
+      if (o.status === 'awaiting_payment') btns.push(`<button class="btn-confirm" onclick="setStatus(${o.id},'confirmed')">✅ Confirmar</button>`);
+      if (o.status === 'confirmed') btns.push(`<button class="btn-prepare" onclick="setStatus(${o.id},'preparing')">👨‍🍳 Preparando</button>`);
+      if (o.status === 'preparing') btns.push(`<button class="btn-deliver" onclick="setStatus(${o.id},'out_for_delivery')">🛵 Saiu p/ entrega</button>`);
+      if (o.status === 'out_for_delivery') btns.push(`<button class="btn-done" onclick="setStatus(${o.id},'delivered')">✅ Entregue</button>`);
+      if (!['delivered','cancelled'].includes(o.status)) btns.push(`<button class="btn-cancel" onclick="setStatus(${o.id},'cancelled')">✕ Cancelar</button>`);
       return btns.join('');
     }
 

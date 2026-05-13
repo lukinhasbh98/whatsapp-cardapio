@@ -2,59 +2,86 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Entregas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Painel do Entregador</title>
   <script src="/socket.io/socket.io.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; min-height: 100vh; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --pri:#f05a1a;--pri-d:#d44d12;--pri-l:#f05a1a18;
+      --bg:#0b0d12;--surface:#14171f;--surface2:#1c2030;--surface3:#232838;
+      --txt:#e4e8f0;--muted:#7a8499;--border:#252b3a;
+      --ok:#22c55e;--ok-l:#22c55e18;--err:#ef4444;--err-l:#ef444418;
+      --r:14px;--r-lg:20px;--r-xl:28px;--ease:.2s ease
+    }
+    body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;-webkit-font-smoothing:antialiased}
 
     /* ── Login ── */
-    .login-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
-    .card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 40px; width: 100%; max-width: 360px; }
-    .card .logo { text-align: center; font-size: 2.5rem; margin-bottom: 8px; }
-    .card h1 { text-align: center; font-size: 1.2rem; margin-bottom: 24px; color: #58a6ff; }
-    .card label { display: block; font-size: 0.85rem; color: #8b949e; margin-bottom: 6px; }
-    .card input { width: 100%; padding: 12px 14px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; font-size: 16px; margin-bottom: 20px; }
-    .card input:focus { outline: none; border-color: #58a6ff; }
-    .card .btn-login { width: 100%; padding: 14px; background: #238636; border: none; border-radius: 6px; color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer; }
-    .card .btn-login:hover { background: #2ea043; }
-    .card .error { color: #f85149; font-size: 0.85rem; margin-top: -12px; margin-bottom: 16px; display: none; }
+    .login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;background:linear-gradient(160deg,#0b0d12 0%,#12151e 50%,#0e1118 100%);position:relative;overflow:hidden}
+    .login-wrap::before{content:'';position:absolute;top:-100px;right:-80px;width:300px;height:300px;border-radius:50%;background:rgba(240,90,26,.06);pointer-events:none}
+    .login-wrap::after{content:'';position:absolute;bottom:-80px;left:-60px;width:250px;height:250px;border-radius:50%;background:rgba(240,90,26,.04);pointer-events:none}
+    .login-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:40px 32px;width:100%;max-width:360px;box-shadow:0 24px 64px rgba(0,0,0,.5);position:relative;z-index:1}
+    .login-icon{text-align:center;font-size:3.5rem;margin-bottom:10px;line-height:1}
+    .login-title{text-align:center;font-size:1.25rem;font-weight:800;margin-bottom:4px;letter-spacing:-.015em}
+    .login-sub{text-align:center;font-size:.84rem;color:var(--muted);margin-bottom:28px}
+    .fg label{display:block;font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
+    .fg input{width:100%;padding:14px 16px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;color:var(--txt);font-size:16px;margin-bottom:20px;transition:border-color var(--ease),box-shadow var(--ease)}
+    .fg input:focus{outline:none;border-color:var(--pri);box-shadow:0 0 0 3px rgba(240,90,26,.15)}
+    .fg input::placeholder{color:var(--muted)}
+    .btn-login{width:100%;padding:15px;background:linear-gradient(135deg,var(--pri) 0%,var(--pri-d) 100%);border:none;border-radius:12px;color:#fff;font-size:1rem;font-weight:800;cursor:pointer;box-shadow:0 4px 20px rgba(240,90,26,.4);transition:all var(--ease);letter-spacing:.02em}
+    .btn-login:hover{transform:translateY(-1px);box-shadow:0 7px 24px rgba(240,90,26,.5)}
+    .btn-login:active{transform:translateY(0)}
+    .login-err{color:var(--err);font-size:.84rem;margin-top:-12px;margin-bottom:16px;display:none;font-weight:500;text-align:center}
 
-    /* ── App ── */
-    .app { display: none; }
-    nav { background: #161b22; border-bottom: 1px solid #30363d; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; }
-    nav .logo { font-size: 1.2rem; font-weight: 700; color: #58a6ff; }
-    nav .btn-logout { background: none; border: 1px solid #30363d; border-radius: 6px; color: #8b949e; padding: 6px 14px; cursor: pointer; font-size: 0.85rem; }
-    nav .btn-logout:hover { color: #e6edf3; }
+    /* ── App layout ── */
+    .app{display:none;min-height:100vh;flex-direction:column}
+    .app.visible{display:flex}
+    nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 18px;display:flex;align-items:center;justify-content:space-between;height:54px;flex-shrink:0}
+    nav .nav-logo{font-size:1rem;font-weight:800;color:var(--pri);letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+    nav .btn-logout{background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);padding:7px 14px;cursor:pointer;font-size:.84rem;font-weight:500;transition:all var(--ease)}
+    nav .btn-logout:hover{border-color:var(--muted);color:var(--txt)}
 
-    .content { max-width: 600px; margin: 0 auto; padding: 24px 16px; }
-    .section-title { font-size: 0.9rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
-    .count-badge { background: #58a6ff22; color: #58a6ff; border-radius: 20px; padding: 2px 10px; font-size: 0.8rem; font-weight: 700; }
+    /* ── Content ── */
+    .content{flex:1;max-width:600px;margin:0 auto;padding:20px 16px;width:100%}
+    .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .section-title{font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;display:flex;align-items:center;gap:10px}
+    .count-badge{background:var(--pri-l);color:var(--pri);border-radius:20px;padding:3px 11px;font-size:.78rem;font-weight:800;border:1px solid rgba(240,90,26,.25)}
+    .refresh-btn{background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);padding:6px 12px;cursor:pointer;font-size:.8rem;font-weight:500;transition:all var(--ease)}
+    .refresh-btn:hover{border-color:var(--muted);color:var(--txt)}
 
-    .order-card { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 18px; margin-bottom: 14px; }
-    .order-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-    .order-num { font-weight: 700; font-size: 1.05rem; }
-    .order-time { font-size: 0.78rem; color: #8b949e; }
-    .order-row { display: flex; align-items: flex-start; gap: 8px; font-size: 0.88rem; color: #c9d1d9; margin-bottom: 8px; line-height: 1.4; }
-    .order-row .icon { flex-shrink: 0; width: 18px; }
-    .payment-chip { display: inline-block; background: #21262d; border-radius: 6px; padding: 2px 8px; font-size: 0.8rem; color: #8b949e; }
-    .change-note { color: #e3b341; font-size: 0.82rem; margin-top: 4px; }
-    .btn-deliver { width: 100%; margin-top: 14px; padding: 13px; background: #238636; border: none; border-radius: 8px; color: #fff; font-size: 1rem; font-weight: 700; cursor: pointer; letter-spacing: 0.02em; }
-    .btn-deliver:hover { background: #2ea043; }
-    .btn-deliver:disabled { background: #3fb950; opacity: 0.5; cursor: default; }
+    /* ── Order card ── */
+    .order-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;margin-bottom:12px;transition:border-color var(--ease)}
+    .order-card:hover{border-color:var(--surface3)}
+    .order-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+    .order-num{font-weight:800;font-size:1.1rem;letter-spacing:-.01em}
+    .order-time{font-size:.76rem;color:var(--muted);background:var(--surface2);padding:4px 10px;border-radius:50px;border:1px solid var(--border)}
+    .info-row{display:flex;align-items:flex-start;gap:10px;font-size:.87rem;color:var(--muted);margin-bottom:10px;line-height:1.45}
+    .info-row .ico{flex-shrink:0;font-size:1rem;margin-top:1px}
+    .info-row .val{color:var(--txt)}
+    .info-row .val strong{color:var(--txt);font-weight:700}
+    .payment-chip{display:inline-flex;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:2px 10px;font-size:.78rem;color:var(--muted);margin-left:6px}
+    .change-note{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);border-radius:8px;padding:8px 12px;font-size:.83rem;color:#f59e0b;margin-top:8px;font-weight:500}
+    .divider{height:1px;background:var(--border);margin:14px 0}
+    .btn-deliver{width:100%;padding:15px;background:linear-gradient(135deg,var(--ok) 0%,#16a34a 100%);border:none;border-radius:12px;color:#fff;font-size:1rem;font-weight:800;cursor:pointer;box-shadow:0 4px 20px rgba(34,197,94,.3);transition:all var(--ease);letter-spacing:.02em}
+    .btn-deliver:hover{transform:translateY(-1px);box-shadow:0 7px 24px rgba(34,197,94,.4)}
+    .btn-deliver:active{transform:translateY(0)}
+    .btn-deliver:disabled{background:var(--surface3);color:var(--muted);cursor:default;transform:none;box-shadow:none;border:1px solid var(--border)}
 
-    .empty { text-align: center; color: #8b949e; padding: 60px 20px; font-size: 1rem; }
-    .empty .icon { font-size: 3rem; margin-bottom: 12px; }
+    /* ── Empty state ── */
+    .empty{text-align:center;padding:64px 20px}
+    .empty-icon{font-size:4rem;margin-bottom:16px;opacity:.6}
+    .empty-title{font-size:1.1rem;font-weight:700;color:var(--txt);margin-bottom:6px}
+    .empty-sub{font-size:.88rem;color:var(--muted);line-height:1.5}
 
-    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #238636; color: #fff; padding: 12px 24px; border-radius: 8px; font-weight: 600; display: none; z-index: 999; white-space: nowrap; }
+    /* ── Toast ── */
+    #toast{position:fixed;bottom:max(24px,env(safe-area-inset-bottom,24px));left:50%;transform:translateX(-50%);background:var(--ok);color:#fff;padding:13px 28px;border-radius:50px;font-weight:700;font-size:.9rem;display:none;z-index:999;white-space:nowrap;box-shadow:0 6px 24px rgba(34,197,94,.35);animation:toastUp .25s ease}
+    @keyframes toastUp{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 
-    .refresh-btn { background: none; border: 1px solid #30363d; border-radius: 6px; color: #8b949e; padding: 4px 12px; cursor: pointer; font-size: 0.8rem; }
-    .refresh-btn:hover { color: #e6edf3; }
-
-    @media (max-width: 480px) {
-      .card { padding: 28px 20px; }
-      .content { padding: 16px 12px; }
+    /* ── Mobile tweaks ── */
+    @media(max-width:480px){
+      .login-card{padding:30px 22px}
+      .content{padding:16px 12px}
+      .order-card{padding:16px}
     }
   </style>
 </head>
@@ -62,12 +89,15 @@
 
   <!-- Login -->
   <div class="login-wrap" id="login-wrap">
-    <div class="card">
-      <div class="logo">🛵</div>
-      <h1>Painel do Entregador</h1>
-      <label>Senha</label>
-      <input type="password" id="password" placeholder="Digite a senha" onkeydown="if(event.key==='Enter')login()">
-      <p class="error" id="err"></p>
+    <div class="login-card">
+      <div class="login-icon">🛵</div>
+      <div class="login-title">Painel do Entregador</div>
+      <div class="login-sub">Entre para ver seus pedidos em rota</div>
+      <div class="fg">
+        <label>Senha de acesso</label>
+        <input type="password" id="password" placeholder="Digite a senha" onkeydown="if(event.key==='Enter')login()">
+      </div>
+      <p class="login-err" id="err"></p>
       <button class="btn-login" onclick="login()">Entrar</button>
     </div>
   </div>
@@ -75,27 +105,28 @@
   <!-- App -->
   <div class="app" id="app">
     <nav>
-      <span class="logo">🛵 Entregas</span>
+      <span class="nav-logo">🛵 Entregas</span>
       <button class="btn-logout" onclick="logout()">Sair</button>
     </nav>
     <div class="content">
-      <div class="section-title">
-        Em rota de entrega
-        <span class="count-badge" id="count">0</span>
+      <div class="section-header">
+        <div class="section-title">
+          Em rota de entrega
+          <span class="count-badge" id="count">0</span>
+        </div>
         <button class="refresh-btn" onclick="loadOrders()">↻ Atualizar</button>
       </div>
       <div id="orders-list"></div>
     </div>
   </div>
 
-  <div class="toast" id="toast"></div>
+  <div id="toast"></div>
 
   <script>
     const TOKEN_KEY = 'delivery_token';
     let token = localStorage.getItem(TOKEN_KEY);
 
     function h() { return { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }; }
-
     function fmt(v) { return 'R$ ' + Number(v).toFixed(2).replace('.', ','); }
     function fmtPhone(p) { return p.replace(/\D/g,'').replace(/^55(\d{2})(\d{4,5})(\d{4})$/, '($1) $2-$3'); }
 
@@ -128,14 +159,14 @@
     function logout() {
       localStorage.removeItem(TOKEN_KEY);
       token = null;
-      document.getElementById('app').style.display = 'none';
+      document.getElementById('app').classList.remove('visible');
       document.getElementById('login-wrap').style.display = 'flex';
       document.getElementById('password').value = '';
     }
 
     function showApp() {
       document.getElementById('login-wrap').style.display = 'none';
-      document.getElementById('app').style.display = 'block';
+      document.getElementById('app').classList.add('visible');
       loadOrders();
       initSocket();
     }
@@ -148,7 +179,7 @@
         if (res.status === 401 || res.status === 403) { logout(); return; }
         orders = await res.json();
         renderOrders();
-      } catch { /* network error, ignore */ }
+      } catch { /* network error */ }
     }
 
     function renderOrders() {
@@ -156,14 +187,19 @@
       document.getElementById('count').textContent = orders.length;
 
       if (!orders.length) {
-        list.innerHTML = `<div class="empty"><div class="icon">✅</div>Nenhum pedido em rota no momento.</div>`;
+        list.innerHTML = `
+          <div class="empty">
+            <div class="empty-icon">✅</div>
+            <div class="empty-title">Tudo entregue!</div>
+            <div class="empty-sub">Nenhum pedido em rota no momento.<br>Aguarde novos pedidos.</div>
+          </div>`;
         return;
       }
 
       list.innerHTML = orders.map(o => {
         const paymentLabel = { pix: 'PIX', cash: 'Dinheiro', card: 'Cartão' }[o.payment_method] || o.payment_method;
         const changeHtml = o.payment_method === 'cash' && o.change_amount > 0
-          ? `<div class="change-note">💵 Troco para ${fmt(o.total + o.change_amount)} → troco: ${fmt(o.change_amount)}</div>`
+          ? `<div class="change-note">💵 Troco para ${fmt(o.total + o.change_amount)} — levar troco de <strong>${fmt(o.change_amount)}</strong></div>`
           : '';
 
         return `
@@ -172,14 +208,15 @@
               <span class="order-num">#${String(o.id).padStart(4,'0')}</span>
               <span class="order-time">${o.created_at}</span>
             </div>
-            ${o.customer_name ? `<div class="order-row"><span class="icon">👤</span><span>${o.customer_name}</span></div>` : ''}
-            <div class="order-row"><span class="icon">📱</span><span>${fmtPhone(o.customer_phone)}</span></div>
-            <div class="order-row"><span class="icon">📍</span><span>${o.address}</span></div>
-            <div class="order-row">
-              <span class="icon">💰</span>
-              <span><strong>${fmt(o.total)}</strong> &nbsp;<span class="payment-chip">${paymentLabel}</span></span>
+            ${o.customer_name ? `<div class="info-row"><span class="ico">👤</span><span class="val">${o.customer_name}</span></div>` : ''}
+            <div class="info-row"><span class="ico">📱</span><span class="val">${fmtPhone(o.customer_phone)}</span></div>
+            <div class="info-row"><span class="ico">📍</span><span class="val">${o.address}</span></div>
+            <div class="info-row">
+              <span class="ico">💰</span>
+              <span class="val"><strong>${fmt(o.total)}</strong><span class="payment-chip">${paymentLabel}</span></span>
             </div>
             ${changeHtml}
+            <div class="divider"></div>
             <button class="btn-deliver" id="btn-${o.id}" onclick="markDelivered(${o.id})">✅ Marcar como Entregue</button>
           </div>`;
       }).join('');
@@ -221,10 +258,8 @@
         const socket = io();
         socket.on('order_status_update', ({ orderId, status }) => {
           if (status === 'out_for_delivery') {
-            // New order arrived for delivery — reload
             loadOrders();
           } else if (status !== 'out_for_delivery') {
-            // Remove if it left this state (e.g., cancelled from admin)
             orders = orders.filter(o => o.id !== orderId);
             renderOrders();
           }
@@ -232,10 +267,8 @@
       } catch { /* socket unavailable */ }
     }
 
-    // Auto-refresh every 60 seconds as fallback
     setInterval(loadOrders, 60000);
 
-    // Init
     if (token) {
       showApp();
     }
