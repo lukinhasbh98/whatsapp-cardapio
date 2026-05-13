@@ -30,6 +30,9 @@
     .pass-hint{font-size:.75rem;color:var(--muted);margin-top:4px}
     .pass-ok{color:var(--ok)!important}
     .pass-err{color:#dc2626!important}
+    .pass-wrap{position:relative}
+    .pass-wrap input{padding-right:44px}
+    .pass-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--muted);line-height:1;padding:2px}
     .btn-pri{width:100%;padding:14px;background:var(--pri);border:none;border-radius:10px;color:#fff;font-size:1rem;font-weight:700;cursor:pointer;margin-top:4px}
     .btn-pri:hover{background:var(--pri-d)}
     .btn-pri:disabled{opacity:.6;cursor:default}
@@ -205,7 +208,7 @@
     <!-- Login -->
     <div id="form-login">
       <div class="fg"><label>E-mail</label><input id="l-email" type="email" placeholder="seu@email.com" inputmode="email" autocomplete="email" onkeydown="if(event.key==='Enter')login()"></div>
-      <div class="fg"><label>Senha</label><input id="l-pass" type="password" placeholder="Sua senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"></div>
+      <div class="fg"><label>Senha</label><div class="pass-wrap"><input id="l-pass" type="password" placeholder="Sua senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"><button type="button" class="pass-toggle" onclick="togglePass('l-pass',this)" tabindex="-1">👁️</button></div></div>
       <button class="btn-pri" onclick="login()">Entrar</button>
     </div>
 
@@ -222,11 +225,11 @@
       <div class="fg"><label>Complemento<span class="fg-opt">(opcional)</span></label><input id="r-comp" type="text" placeholder="Ex: Apto 45, Bloco B"></div>
       <div class="fg">
         <label>Senha</label>
-        <input id="r-pass" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password" oninput="checkPassMatch()">
+        <div class="pass-wrap"><input id="r-pass" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password" oninput="checkPassMatch()"><button type="button" class="pass-toggle" onclick="togglePass('r-pass',this)" tabindex="-1">👁️</button></div>
       </div>
       <div class="fg">
         <label>Confirmar senha</label>
-        <input id="r-pass2" type="password" placeholder="Repita a senha" autocomplete="new-password" oninput="checkPassMatch()">
+        <div class="pass-wrap"><input id="r-pass2" type="password" placeholder="Repita a senha" autocomplete="new-password" oninput="checkPassMatch()"><button type="button" class="pass-toggle" onclick="togglePass('r-pass2',this)" tabindex="-1">👁️</button></div>
         <div class="pass-hint" id="pass-hint"></div>
       </div>
       <button class="btn-pri" onclick="register()">Criar conta</button>
@@ -446,6 +449,13 @@ function buildAddress(rua, num, bairro, comp) {
 function parseAddress(addr) {
   const parts = addr.split(', ');
   return { rua: parts[0] || '', num: parts[1] || '', bairro: parts[2] || '', comp: parts.slice(3).join(', ') || '' };
+}
+
+function togglePass(inputId, btn) {
+  const input = $(inputId);
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  btn.textContent = show ? '🙈' : '👁️';
 }
 
 function checkPassMatch() {
