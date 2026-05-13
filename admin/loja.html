@@ -998,6 +998,36 @@ const STATUS_LABELS = {
   cancelled:        '❌ Pedido cancelado.',
 };
 
+let _pixPollTimer = null;
+function pollPixQr(orderId, attempts = 0) {
+  if (_pixPollTimer) clearTimeout(_pixPollTimer);
+  if (attempts > 20) { // 40 segundos sem QR = erro
+    const loading = document.getElementById('pix-loading');
+    if (loading) loading.innerHTML = '❌ Não foi possível gerar o QR Code. Entre em contato pelo WhatsApp.';
+    return;
+  }
+  _pixPollTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(`/api/customer/orders/${orderId}/pix`, { headers: h() });
+      const d = await r.json();
+      if (d.pixQrCode) {
+        document.getElementById('pix-loading').style.display = 'none';
+        const content = document.getElementById('pix-content');
+        if (content) {
+          document.getElementById('pix-cc-val').textContent = d.pixQrCode;
+          if (d.pixQrCodeBase64) {
+            document.getElementById('pix-qr-wrap').innerHTML =
+              `<img src="data:image/png;base64,${d.pixQrCodeBase64}" style="width:180px;height:180px;border-radius:10px;border:1px solid var(--border)" alt="QR Code PIX">`;
+          }
+          content.style.display = 'block';
+        }
+      } else {
+        pollPixQr(orderId, attempts + 1);
+      }
+    } catch { pollPixQr(orderId, attempts + 1); }
+  }, 2000);
+}
+
 function showConfirmScreen(data, confirmedCart) {
   $('confirm-sub').textContent = `Pedido #${data.orderNum} recebido com sucesso.`;
   const est = settings.estimated_time || '40-60 minutos';
@@ -1011,22 +1041,20 @@ function showConfirmScreen(data, confirmedCart) {
   // Bloco PIX com QR Code e Copia e Cola
   const pixBlock = document.getElementById('confirm-pix');
   if (data.status === 'awaiting_payment') {
-    if (data.pixQrCode) {
-      pixBlock.innerHTML = `
-        <h4 style="margin-bottom:12px">💸 Pague agora via PIX</h4>
-        ${data.pixQrCodeBase64 ? `<div style="text-align:center;margin-bottom:16px"><img src="data:image/png;base64,${data.pixQrCodeBase64}" style="width:180px;height:180px;border-radius:10px;border:1px solid var(--border)" alt="QR Code PIX"></div>` : ''}
+    pixBlock.innerHTML = `
+      <h4 style="margin-bottom:12px">💸 Pague agora via PIX</h4>
+      <div id="pix-loading" style="text-align:center;padding:20px 0;color:var(--muted);font-size:.88rem">⏳ Gerando QR Code...</div>
+      <div id="pix-content" style="display:none">
+        <div id="pix-qr-wrap" style="text-align:center;margin-bottom:16px"></div>
         <div style="font-size:.78rem;color:var(--muted);margin-bottom:6px;font-weight:600">Copia e Cola:</div>
         <div class="pix-box">
-          <div class="pix-key" id="pix-cc-val" style="font-size:.75rem">${data.pixQrCode}</div>
+          <div class="pix-key" id="pix-cc-val" style="font-size:.75rem"></div>
           <button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('pix-cc-val').textContent).then(()=>showToast('✅ Código copiado!'))">Copiar</button>
         </div>
-        <p style="font-size:.78rem;color:var(--muted);margin-top:10px;line-height:1.5">⚠️ Você tem <strong>10 minutos</strong> para pagar. O pedido será cancelado automaticamente se o pagamento não for identificado.</p>`;
-    } else {
-      pixBlock.innerHTML = `
-        <h4 style="margin-bottom:8px;color:var(--err)">⚠️ Erro ao gerar PIX</h4>
-        <p style="font-size:.83rem;color:var(--muted);line-height:1.5">${data.pixError || 'Não foi possível gerar o QR Code. Entre em contato pelo WhatsApp.'}</p>`;
-    }
+        <p style="font-size:.78rem;color:var(--muted);margin-top:10px;line-height:1.5">⚠️ Você tem <strong>10 minutos</strong> para pagar. O pedido será cancelado automaticamente se o pagamento não for identificado.</p>
+      </div>`;
     pixBlock.style.display = 'block';
+    pollPixQr(data.orderId);
   } else {
     pixBlock.style.display = 'none';
   }

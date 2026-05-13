@@ -97,24 +97,22 @@ router.post('/orders', customerAuthMiddleware, async (req, res) => {
   db.prepare('UPDATE customers SET last_address = ?, last_order_id = ? WHERE id = ?')
     .run(cleanAddr, orderId, req.customer.id);
 
-  // Gera pagamento PIX real no Mercado Pago
-  let pixQrCode = null, pixQrCodeBase64 = null, pixError = null;
-  if (payment_method === 'pix') {
-    try {
-      const pixData = await createPixPayment(total, orderId, customer.phone);
-      db.prepare('UPDATE orders SET mp_payment_id = ? WHERE id = ?').run(String(pixData.id), orderId);
-      pixQrCode       = pixData.qrCode;
-      pixQrCodeBase64 = pixData.qrCodeBase64;
-      console.log('[PIX] Pagamento criado:', pixData.id, '| qrCode length:', pixData.qrCode?.length, '| base64 length:', pixData.qrCodeBase64?.length);
-    } catch (err) {
-      pixError = err.message;
-      console.error('[PIX] Erro ao criar pagamento MP:', JSON.stringify(err, null, 2));
-    }
-  }
-
   await notifyAdmin(null, orderId).catch(console.error);
 
-  res.json({ orderId, orderNum: String(orderId).padStart(4, '0'), status, total, deliveryFee, pixQrCode, pixQrCodeBase64, pixError });
+  // Responde imediatamente — PIX é gerado em background e disponível via polling
+  res.json({ orderId, orderNum: String(orderId).padStart(4, '0'), status, total, deliveryFee });
+
+  // Gera pagamento PIX no Mercado Pago após responder (não bloqueia o cliente)
+  if (payment_method === 'pix') {
+    createPixPayment(total, orderId, customer.phone)
+      .then(pixData => {
+        db.prepare('UPDATE orders SET mp_payment_id = ? WHERE id = ?').run(String(pixData.id), orderId);
+        db.prepare('UPDATE orders SET pix_qr_code = ?, pix_qr_base64 = ? WHERE id = ?')
+          .run(pixData.qrCode, pixData.qrCodeBase64, orderId);
+        console.log('[PIX] Pagamento criado:', pixData.id);
+      })
+      .catch(err => console.error('[PIX] Erro ao criar pagamento MP:', err.message));
+  }
 });
 
 // ── Authenticated: order history ─────────────────────────────────────────────
@@ -125,6 +123,15 @@ router.get('/orders', customerAuthMiddleware, (req, res) => {
     'SELECT id, status, total, payment_method, created_at, address FROM orders WHERE customer_phone = ? ORDER BY created_at DESC LIMIT 20'
   ).all(c.phone);
   res.json(orders);
+});
+
+// ── Authenticated: PIX QR Code polling ──────────────────────────────────────
+router.get('/orders/:id/pix', customerAuthMiddleware, (req, res) => {
+  const c = db.prepare('SELECT phone FROM customers WHERE id = ?').get(req.customer.id);
+  if (!c) return res.status(404).json({ error: 'Cliente não encontrado' });
+  const order = db.prepare('SELECT pix_qr_code, pix_qr_base64, status FROM orders WHERE id = ? AND customer_phone = ?').get(req.params.id, c.phone);
+  if (!order) return res.status(404).json({ error: 'Pedido não encontrado' });
+  res.json({ pixQrCode: order.pix_qr_code || null, pixQrCodeBase64: order.pix_qr_base64 || null, status: order.status });
 });
 
 // ── Authenticated: single order with items ───────────────────────────────────

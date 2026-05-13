@@ -17,6 +17,8 @@ db.exec(schema);
 try { db.exec("ALTER TABLE menu_items ADD COLUMN available_days TEXT DEFAULT '[]'"); } catch (_) {}
 try { db.exec("ALTER TABLE customers ADD COLUMN email TEXT DEFAULT ''"); } catch (_) {}
 try { db.exec("ALTER TABLE customers ADD COLUMN password_hash TEXT DEFAULT ''"); } catch (_) {}
+try { db.exec("ALTER TABLE orders ADD COLUMN pix_qr_code TEXT DEFAULT ''"); } catch (_) {}
+try { db.exec("ALTER TABLE orders ADD COLUMN pix_qr_base64 TEXT DEFAULT ''"); } catch (_) {}
 db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('delivery_password', '')").run();
 
 // Helpers
