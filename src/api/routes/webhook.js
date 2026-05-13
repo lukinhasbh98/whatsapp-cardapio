@@ -13,8 +13,8 @@ router.post('/mercadopago', express.raw({ type: 'application/json' }), async (re
   if (secret) {
     const xSignature = req.headers['x-signature'] || '';
     const xRequestId = req.headers['x-request-id'] || '';
-    const queryString = req.url.includes('?') ? req.url.split('?')[1] : '';
-    const dataId = req.query?.data?.id || '';
+    // MP envia como ?data.id=xxx (ponto no nome), não data[id]
+    const dataId = req.query['data.id'] || req.query?.data?.id || '';
 
     const manifest = `id:${dataId};request-id:${xRequestId};ts:${xSignature.split(',').find(p => p.startsWith('ts='))?.slice(3) || ''}`;
     const hmac = crypto.createHmac('sha256', secret).update(manifest).digest('hex');
