@@ -1084,14 +1084,19 @@ function showConfirmScreen(data, confirmedCart) {
 
 function renderSteps(currentStatus, stepsEl, labelEl) {
   const idx = STATUS_STEPS.findIndex(s => s.key === currentStatus);
+  const isDelivered = currentStatus === 'delivered';
   stepsEl.innerHTML = STATUS_STEPS
     .filter(s => s.key !== 'awaiting_payment' || currentStatus === 'awaiting_payment')
     .map(s => {
       const stepIdx = STATUS_STEPS.indexOf(s);
-      const cls = stepIdx < idx ? 'done' : stepIdx === idx ? 'curr' : '';
+      const cls = stepIdx < idx ? 'done'
+                : stepIdx === idx ? (isDelivered ? 'done' : 'curr')
+                : '';
       return `<div class="step ${cls}"><div class="dot"></div>${s.label}</div>`;
     }).join('');
   labelEl.textContent = STATUS_LABELS[currentStatus] || currentStatus;
+  labelEl.style.color = isDelivered ? 'var(--ok)' : '';
+  labelEl.style.background = isDelivered ? 'var(--ok-l)' : '';
 }
 
 function renderStatusSteps(currentStatus) {

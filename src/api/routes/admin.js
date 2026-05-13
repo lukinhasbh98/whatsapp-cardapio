@@ -3,7 +3,7 @@ const path = require('path');
 const multer = require('multer');
 const db = require('../../database/db');
 const { authMiddleware } = require('./auth');
-const { notifyOrderStatus, getBotStatus } = require('../../services/notifier');
+const { notifyOrderStatus, getBotStatus, emitOrderUpdate } = require('../../services/notifier');
 const router = express.Router();
 
 const storage = multer.diskStorage({
@@ -123,7 +123,8 @@ router.put('/orders/:id/status', authMiddleware, async (req, res) => {
   if (!allowed.includes(status)) return res.status(400).json({ error: 'Status inválido' });
 
   db.prepare('UPDATE orders SET status = ?, updated_at = datetime(\'now\',\'localtime\') WHERE id = ?').run(status, req.params.id);
-  await notifyOrderStatus(null, req.params.id, status);
+  emitOrderUpdate(req.params.id, status); // sempre emite, independente do bot
+  await notifyOrderStatus(null, req.params.id, status); // WhatsApp (só se bot conectado)
   res.json({ ok: true });
 });
 
