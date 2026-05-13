@@ -36,7 +36,7 @@ async function startBot() {
     version,
     auth: state,
     logger: pino({ level: 'silent' }),
-    browser: Browsers.ubuntu('Chrome'),
+    browser: Browsers.macOS('Safari'),
   });
 
   _connecting = false;
@@ -65,9 +65,16 @@ async function startBot() {
       console.log('⚠️ Conexão encerrada. Motivo:', reason, '| Erro:', lastDisconnect?.error?.message);
 
       if (badSession) {
-        fs.rmSync(SESSIONS_PATH, { recursive: true, force: true });
-        fs.mkdirSync(SESSIONS_PATH, { recursive: true });
-        console.log('🗑️ Sessão removida. Clique em "Conectar" no painel para gerar novo QR Code.');
+        // Só apaga sessão se havia arquivos (ex: logout real). 405 sem sessão = bloqueio temporário.
+        const hadSession = fs.readdirSync(SESSIONS_PATH).some(f => f.endsWith('.json'));
+        if (hadSession) {
+          fs.rmSync(SESSIONS_PATH, { recursive: true, force: true });
+          fs.mkdirSync(SESSIONS_PATH, { recursive: true });
+          console.log('🗑️ Sessão removida. Clique em "Conectar" no painel para gerar novo QR Code.');
+        } else {
+          console.log('⚠️ Conexão recusada pelo WhatsApp (bloqueio temporário). Tente novamente em alguns minutos.');
+        }
+        _connecting = false;
         notifier.emitBotStatus('needs_connect');
       } else {
         console.log('Reconectando em', _reconnectDelay / 1000, 's...');
