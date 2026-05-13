@@ -25,6 +25,11 @@
     .fg label{display:block;font-size:.8rem;font-weight:600;color:#374151;margin-bottom:5px}
     .fg input{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:16px;color:var(--txt);transition:border-color .2s}
     .fg input:focus{outline:none;border-color:var(--pri)}
+    .fg-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .fg-opt{font-size:.75rem;color:var(--muted);font-weight:400;margin-left:4px}
+    .pass-hint{font-size:.75rem;color:var(--muted);margin-top:4px}
+    .pass-ok{color:var(--ok)!important}
+    .pass-err{color:#dc2626!important}
     .btn-pri{width:100%;padding:14px;background:var(--pri);border:none;border-radius:10px;color:#fff;font-size:1rem;font-weight:700;cursor:pointer;margin-top:4px}
     .btn-pri:hover{background:var(--pri-d)}
     .btn-pri:disabled{opacity:.6;cursor:default}
@@ -209,8 +214,21 @@
       <div class="fg"><label>Nome completo</label><input id="r-name" type="text" placeholder="João Silva" autocomplete="name"></div>
       <div class="fg"><label>E-mail</label><input id="r-email" type="email" placeholder="seu@email.com" inputmode="email" autocomplete="email"></div>
       <div class="fg"><label>WhatsApp (com DDD)</label><input id="r-phone" type="tel" placeholder="(11) 99999-9999" inputmode="tel" autocomplete="tel"></div>
-      <div class="fg"><label>Endereço de entrega</label><input id="r-addr" type="text" placeholder="Rua, número, bairro"></div>
-      <div class="fg"><label>Senha</label><input id="r-pass" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password"></div>
+      <div class="fg"><label>Rua / Avenida</label><input id="r-rua" type="text" placeholder="Ex: Rua das Flores" autocomplete="street-address"></div>
+      <div class="fg-row">
+        <div class="fg"><label>Número</label><input id="r-num" type="text" placeholder="Ex: 123" inputmode="numeric"></div>
+        <div class="fg"><label>Bairro</label><input id="r-bairro" type="text" placeholder="Ex: Centro"></div>
+      </div>
+      <div class="fg"><label>Complemento<span class="fg-opt">(opcional)</span></label><input id="r-comp" type="text" placeholder="Ex: Apto 45, Bloco B"></div>
+      <div class="fg">
+        <label>Senha</label>
+        <input id="r-pass" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password" oninput="checkPassMatch()">
+      </div>
+      <div class="fg">
+        <label>Confirmar senha</label>
+        <input id="r-pass2" type="password" placeholder="Repita a senha" autocomplete="new-password" oninput="checkPassMatch()">
+        <div class="pass-hint" id="pass-hint"></div>
+      </div>
       <button class="btn-pri" onclick="register()">Criar conta</button>
     </div>
 
@@ -251,7 +269,12 @@
   <div class="co-body">
     <div class="co-section">
       <div class="co-sec-title">📍 Endereço de entrega</div>
-      <input id="co-addr" type="text" placeholder="Rua, número, bairro, complemento">
+      <div class="fg"><label>Rua / Avenida</label><input id="co-rua" type="text" placeholder="Ex: Rua das Flores" autocomplete="street-address"></div>
+      <div class="fg-row">
+        <div class="fg" style="margin-bottom:0"><label>Número</label><input id="co-num" type="text" placeholder="Ex: 123" inputmode="numeric"></div>
+        <div class="fg" style="margin-bottom:0"><label>Bairro</label><input id="co-bairro" type="text" placeholder="Ex: Centro"></div>
+      </div>
+      <div class="fg" style="margin-top:10px;margin-bottom:0"><label>Complemento<span class="fg-opt">(opcional)</span></label><input id="co-comp" type="text" placeholder="Ex: Apto 45, Bloco B"></div>
     </div>
     <div class="co-section">
       <div class="co-sec-title">💳 Forma de pagamento</div>
@@ -416,13 +439,39 @@ async function login() {
   } catch { showAuthErr('Erro de conexão.'); }
 }
 
+function buildAddress(rua, num, bairro, comp) {
+  return [rua, num, bairro, comp].filter(Boolean).join(', ');
+}
+
+function parseAddress(addr) {
+  const parts = addr.split(', ');
+  return { rua: parts[0] || '', num: parts[1] || '', bairro: parts[2] || '', comp: parts.slice(3).join(', ') || '' };
+}
+
+function checkPassMatch() {
+  const p1 = $('r-pass').value;
+  const p2 = $('r-pass2').value;
+  const hint = $('pass-hint');
+  if (!p2) { hint.textContent = ''; return; }
+  if (p1 === p2) { hint.textContent = '✓ Senhas coincidem'; hint.className = 'pass-hint pass-ok'; }
+  else           { hint.textContent = '✗ Senhas não coincidem'; hint.className = 'pass-hint pass-err'; }
+}
+
 async function register() {
-  const name  = $('r-name').value.trim();
-  const email = $('r-email').value.trim();
-  const phone = $('r-phone').value.trim();
-  const addr  = $('r-addr').value.trim();
-  const pass  = $('r-pass').value;
-  if (!name || !email || !phone || !pass) { showAuthErr('Preencha todos os campos obrigatórios.'); return; }
+  const name   = $('r-name').value.trim();
+  const email  = $('r-email').value.trim();
+  const phone  = $('r-phone').value.trim();
+  const rua    = $('r-rua').value.trim();
+  const num    = $('r-num').value.trim();
+  const bairro = $('r-bairro').value.trim();
+  const comp   = $('r-comp').value.trim();
+  const pass   = $('r-pass').value;
+  const pass2  = $('r-pass2').value;
+  if (!name || !email || !phone || !rua || !num || !bairro || !pass) {
+    showAuthErr('Preencha todos os campos obrigatórios.'); return;
+  }
+  if (pass !== pass2) { showAuthErr('As senhas não coincidem.'); return; }
+  const addr = buildAddress(rua, num, bairro, comp);
   try {
     const res = await fetch('/api/auth/customer-register', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -712,7 +761,13 @@ async function goCheckout() {
   try {
     const r = await fetch('/api/customer/profile', { headers: h() });
     const p = await r.json();
-    if (p.last_address) $('co-addr').value = p.last_address;
+    if (p.last_address) {
+      const parts = parseAddress(p.last_address);
+      $('co-rua').value    = parts.rua;
+      $('co-num').value    = parts.num;
+      $('co-bairro').value = parts.bairro;
+      $('co-comp').value   = parts.comp;
+    }
   } catch {}
   // Summary
   renderCheckoutSummary();
@@ -758,8 +813,14 @@ function copyPix() {
 }
 
 async function placeOrder() {
-  const address = $('co-addr').value.trim();
-  if (!address || address.length < 10) { showToast('❌ Informe o endereço completo.'); return; }
+  const rua    = $('co-rua').value.trim();
+  const num    = $('co-num').value.trim();
+  const bairro = $('co-bairro').value.trim();
+  const comp   = $('co-comp').value.trim();
+  if (!rua)    { showToast('❌ Informe a rua/avenida.'); return; }
+  if (!num)    { showToast('❌ Informe o número.'); return; }
+  if (!bairro) { showToast('❌ Informe o bairro.'); return; }
+  const address = buildAddress(rua, num, bairro, comp);
   if (!selectedPayment) { showToast('❌ Escolha a forma de pagamento.'); return; }
   if (!cart.length) { showToast('❌ Carrinho vazio.'); return; }
 
