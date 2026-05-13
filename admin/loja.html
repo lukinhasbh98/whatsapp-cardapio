@@ -1028,6 +1028,18 @@ function pollPixQr(orderId, attempts = 0) {
   }, 2000);
 }
 
+function onPixConfirmed() {
+  // Atualiza row de status do pagamento
+  const row = document.getElementById('confirm-pay-status');
+  if (row) row.innerHTML = '<span class="k" style="color:var(--ok);font-weight:700">✅ Pagamento PIX confirmado!</span>';
+  // Esconde bloco do QR Code
+  const pixBlock = document.getElementById('confirm-pix');
+  if (pixBlock) pixBlock.style.display = 'none';
+  // Para todos os timers de polling
+  if (_pixPollTimer) { clearTimeout(_pixPollTimer); _pixPollTimer = null; }
+  stopStatusPolling();
+}
+
 function showConfirmScreen(data, confirmedCart) {
   $('confirm-sub').textContent = `Pedido #${data.orderNum} recebido com sucesso.`;
   const est = settings.estimated_time || '40-60 minutos';
@@ -1036,7 +1048,7 @@ function showConfirmScreen(data, confirmedCart) {
     <div class="confirm-info-row"><span class="k">Número</span><span class="v">#${data.orderNum}</span></div>
     <div class="confirm-info-row"><span class="k">Tempo estimado</span><span class="v">${est}</span></div>
     <div class="confirm-info-row"><span class="k">Total</span><span class="v">${fmt(data.total)}</span></div>
-    ${data.status === 'awaiting_payment' ? '<div class="confirm-info-row"><span class="k" style="color:var(--warn)">⏳ Aguardando pagamento PIX</span></div>' : ''}`;
+    ${data.status === 'awaiting_payment' ? '<div id="confirm-pay-status" class="confirm-info-row"><span class="k" style="color:var(--warn)">⏳ Aguardando pagamento PIX</span></div>' : ''}`;
 
   // Bloco PIX com QR Code e Copia e Cola
   const pixBlock = document.getElementById('confirm-pix');
@@ -1183,8 +1195,10 @@ function initSocket() {
       const id = +orderId;
 
       if (id === +lastOrderId && !$('s-confirm').classList.contains('hidden')) {
+        const wasAwaiting = lastOrderStatus === 'awaiting_payment';
         lastOrderStatus = status;
         renderStatusSteps(status);
+        if (wasAwaiting && status !== 'awaiting_payment') onPixConfirmed();
       }
 
       if (id === currentDetailOrderId) {
@@ -1219,11 +1233,12 @@ function startStatusPolling(orderId) {
       if (!r.ok) return;
       const d = await r.json();
       if (d.status !== lastOrderStatus) {
+        const wasAwaiting = lastOrderStatus === 'awaiting_payment';
         lastOrderStatus = d.status;
         renderStatusSteps(d.status);
-        if (d.status === 'confirmed')        showToast('✅ Pagamento PIX confirmado!', 4000);
-        else if (d.status === 'cancelled')   showToast('❌ Pedido cancelado.', 4000);
-        if (d.status !== 'awaiting_payment') stopStatusPolling();
+        if (wasAwaiting && d.status !== 'awaiting_payment') onPixConfirmed();
+        if (d.status === 'confirmed')      showToast('✅ Pagamento PIX confirmado!', 4000);
+        else if (d.status === 'cancelled') showToast('❌ Pedido cancelado.', 4000);
       }
     } catch {}
   }, 5000);
