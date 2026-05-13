@@ -382,6 +382,7 @@
   </div>
 
   <div class="confirm-card" id="confirm-info"></div>
+  <div class="confirm-card" id="confirm-items"></div>
 
   <button class="btn-pri" style="max-width:420px;margin-bottom:10px" onclick="backToMenu()">Ver Cardápio</button>
   <button class="btn-sec" onclick="showScreen('s-orders')">Meus Pedidos</button>
@@ -393,7 +394,16 @@
     <button class="back-btn" onclick="showScreen('s-menu')">‹</button>
     <span class="co-title">Meus Pedidos</span>
   </div>
-  <div style="padding:14px" id="orders-list"></div>
+  <div style="padding:14px 14px 40px" id="orders-list"></div>
+</div>
+
+<!-- ═══════════════════ ORDER DETAIL SCREEN ═══════════════════ -->
+<div id="s-order-detail" class="hidden">
+  <div class="co-header" style="position:sticky;top:0;z-index:10">
+    <button class="back-btn" onclick="showScreen('s-orders')">‹</button>
+    <span class="co-title">Detalhes do Pedido</span>
+  </div>
+  <div style="padding:14px 14px 40px;background:var(--bg);min-height:calc(100vh - 54px)" id="od-body"></div>
 </div>
 
 <!-- ═══════════════════ OVERLAY + DRAWERS ═══════════════════ -->
@@ -442,8 +452,9 @@ let selectedItem = null;
 let selectedExtras = [];
 let selectedQty  = 1;
 let selectedPayment = null;
-let lastOrderId  = null;
-let lastOrderStatus = null;
+let lastOrderId        = null;
+let lastOrderStatus    = null;
+let currentDetailOrderId = null;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -457,7 +468,7 @@ function showToast(msg, ms = 3000) {
 }
 
 function showScreen(id) {
-  ['s-auth','s-menu','s-checkout','s-confirm','s-orders']
+  ['s-auth','s-menu','s-checkout','s-confirm','s-orders','s-order-detail']
     .forEach(s => $(s).classList.toggle('hidden', s !== id));
   if (id === 's-orders') loadOrders();
 }
@@ -957,11 +968,12 @@ async function placeOrder() {
     const data = await res.json();
     if (!res.ok) { showToast('❌ ' + (data.error || 'Erro ao fazer pedido.')); btn.disabled = false; btn.textContent = 'Confirmar pedido'; return; }
 
+    const confirmedCart = [...cart];
     lastOrderId     = data.orderId;
     lastOrderStatus = data.status;
     cart = [];
     saveCart();
-    showConfirmScreen(data);
+    showConfirmScreen(data, confirmedCart);
   } catch { showToast('❌ Erro de conexão.'); btn.disabled = false; btn.textContent = 'Confirmar pedido'; }
 }
 
@@ -982,7 +994,7 @@ const STATUS_LABELS = {
   cancelled:        '❌ Pedido cancelado.',
 };
 
-function showConfirmScreen(data) {
+function showConfirmScreen(data, confirmedCart) {
   $('confirm-sub').textContent = `Pedido #${data.orderNum} recebido com sucesso.`;
   const est = settings.estimated_time || '40-60 minutos';
   $('confirm-info').innerHTML = `
@@ -990,21 +1002,41 @@ function showConfirmScreen(data) {
     <div class="confirm-info-row"><span class="k">Número</span><span class="v">#${data.orderNum}</span></div>
     <div class="confirm-info-row"><span class="k">Tempo estimado</span><span class="v">${est}</span></div>
     <div class="confirm-info-row"><span class="k">Total</span><span class="v">${fmt(data.total)}</span></div>
-    ${data.status === 'awaiting_payment' ? '<div class="confirm-info-row"><span class="k" style="color:#92400e">⚠️ Aguardando confirmação do pagamento PIX</span></div>' : ''}`;
+    ${data.status === 'awaiting_payment' ? '<div class="confirm-info-row"><span class="k" style="color:#92400e">⚠️ Aguardando pagamento PIX</span></div>' : ''}`;
+
+  const deliveryFee = parseFloat(settings.delivery_fee || '5');
+  const itemsHtml = (confirmedCart || []).map(i => {
+    const extTotal = i.extras.reduce((s, e) => s + e.price, 0);
+    const exText = i.extras.map(e => e.name).join(', ');
+    return `<div class="confirm-info-row">
+      <span class="k">${i.name}${i.qty > 1 ? ` ×${i.qty}` : ''}${exText ? `<br><small style="color:var(--muted);font-size:.75rem">${exText}</small>` : ''}</span>
+      <span class="v">${fmt((i.price + extTotal) * i.qty)}</span>
+    </div>`;
+  }).join('');
+  $('confirm-items').innerHTML = itemsHtml ? `
+    <h4>Itens do pedido</h4>${itemsHtml}
+    <div class="confirm-info-row" style="border-top:1.5px solid var(--border);padding-top:8px;margin-top:4px">
+      <span class="k" style="color:var(--muted)">Entrega</span><span class="v">${fmt(deliveryFee)}</span>
+    </div>` : '';
+
   renderStatusSteps(data.status);
   showScreen('s-confirm');
 }
 
-function renderStatusSteps(currentStatus) {
+function renderSteps(currentStatus, stepsEl, labelEl) {
   const idx = STATUS_STEPS.findIndex(s => s.key === currentStatus);
-  $('status-steps').innerHTML = STATUS_STEPS
+  stepsEl.innerHTML = STATUS_STEPS
     .filter(s => s.key !== 'awaiting_payment' || currentStatus === 'awaiting_payment')
-    .map((s, i) => {
+    .map(s => {
       const stepIdx = STATUS_STEPS.indexOf(s);
       const cls = stepIdx < idx ? 'done' : stepIdx === idx ? 'curr' : '';
       return `<div class="step ${cls}"><div class="dot"></div>${s.label}</div>`;
     }).join('');
-  $('status-label-txt').textContent = STATUS_LABELS[currentStatus] || currentStatus;
+  labelEl.textContent = STATUS_LABELS[currentStatus] || currentStatus;
+}
+
+function renderStatusSteps(currentStatus) {
+  renderSteps(currentStatus, $('status-steps'), $('status-label-txt'));
 }
 
 function backToMenu() {
@@ -1013,6 +1045,8 @@ function backToMenu() {
 }
 
 // ─── My orders ────────────────────────────────────────────────────────────────
+const ORD_LABELS = { awaiting_payment:'Aguard. Pagto', confirmed:'Confirmado', preparing:'Preparando', out_for_delivery:'Saiu p/ entrega', delivered:'Entregue', cancelled:'Cancelado' };
+
 async function loadOrders() {
   const list = $('orders-list');
   list.innerHTML = '<p style="color:var(--muted);text-align:center;padding:30px">Carregando...</p>';
@@ -1020,18 +1054,61 @@ async function loadOrders() {
     const r = await fetch('/api/customer/orders', { headers: h() });
     const orders = await r.json();
     if (!orders.length) { list.innerHTML = '<p style="color:var(--muted);text-align:center;padding:40px">Nenhum pedido ainda.</p>'; return; }
-    const LABELS = { awaiting_payment:'Aguard. Pagto', confirmed:'Confirmado', preparing:'Preparando', out_for_delivery:'Saiu p/ entrega', delivered:'Entregue', cancelled:'Cancelado' };
     list.innerHTML = orders.map(o => `
-      <div class="ord-card">
+      <div class="ord-card" onclick="openOrderDetail(${o.id})" style="cursor:pointer">
         <div class="ord-row">
           <span class="ord-num">#${String(o.id).padStart(4,'0')}</span>
-          <span class="ord-status st-${o.status}">${LABELS[o.status] || o.status}</span>
+          <span class="ord-status st-${o.status}" id="ord-status-${o.id}">${ORD_LABELS[o.status] || o.status}</span>
         </div>
         <div style="font-size:.83rem;color:var(--muted);margin-top:4px">${o.created_at}</div>
-        <div style="font-size:.88rem;margin-top:6px;color:#374151">📍 ${o.address}</div>
-        <div style="font-size:.95rem;font-weight:700;color:var(--pri);margin-top:8px">${fmt(o.total)}</div>
+        <div style="font-size:.88rem;margin-top:6px;color:var(--txt)">📍 ${o.address}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+          <span style="font-size:.95rem;font-weight:700;color:var(--pri)">${fmt(o.total)}</span>
+          <span style="font-size:.8rem;color:var(--muted);font-weight:600">Ver detalhes ›</span>
+        </div>
       </div>`).join('');
   } catch { list.innerHTML = '<p style="color:#dc2626;text-align:center;padding:30px">Erro ao carregar pedidos.</p>'; }
+}
+
+async function openOrderDetail(orderId) {
+  currentDetailOrderId = +orderId;
+  showScreen('s-order-detail');
+  const body = $('od-body');
+  body.innerHTML = '<p style="color:var(--muted);text-align:center;padding:40px">Carregando...</p>';
+  try {
+    const r = await fetch(`/api/customer/orders/${orderId}`, { headers: h() });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Erro ao carregar.');
+    const orderNum = String(data.id).padStart(4, '0');
+    const PAY = { pix:'PIX', cash:'Dinheiro', card:'Cartão' };
+    const itemsHtml = (data.items || []).map(i => {
+      const extras = JSON.parse(i.extras_json || '[]');
+      const extTotal = extras.reduce((s, e) => s + (parseFloat(e.price) || 0), 0);
+      const exText = extras.map(e => e.name).join(', ');
+      return `<div class="confirm-info-row">
+        <span class="k">${i.item_name}${i.qty > 1 ? ` ×${i.qty}` : ''}${exText ? `<br><small style="color:var(--muted);font-size:.75rem">${exText}</small>` : ''}</span>
+        <span class="v">${fmt((parseFloat(i.unit_price) + extTotal) * i.qty)}</span>
+      </div>`;
+    }).join('');
+    body.innerHTML = `
+      <div class="confirm-card">
+        <h4>Status do pedido</h4>
+        <div class="status-steps" id="od-status-steps"></div>
+        <div style="font-size:.82rem;font-weight:700;color:var(--pri);text-align:center;margin-top:14px" id="od-status-label"></div>
+      </div>
+      <div class="confirm-card">
+        <h4>Detalhes</h4>
+        <div class="confirm-info-row"><span class="k">Número</span><span class="v">#${orderNum}</span></div>
+        <div class="confirm-info-row"><span class="k">Data</span><span class="v">${data.created_at}</span></div>
+        <div class="confirm-info-row"><span class="k">Endereço</span><span class="v" style="text-align:right;max-width:60%">${data.address}</span></div>
+        <div class="confirm-info-row"><span class="k">Pagamento</span><span class="v">${PAY[data.payment_method] || data.payment_method}</span></div>
+        <div class="confirm-info-row"><span class="k">Total</span><span class="v">${fmt(data.total)}</span></div>
+      </div>
+      ${itemsHtml ? `<div class="confirm-card"><h4>Itens do pedido</h4>${itemsHtml}</div>` : ''}`;
+    renderSteps(data.status, $('od-status-steps'), $('od-status-label'));
+  } catch(e) {
+    body.innerHTML = `<p style="color:#dc2626;text-align:center;padding:40px">${e.message}</p>`;
+  }
 }
 
 // ─── Socket.IO ───────────────────────────────────────────────────────────────
@@ -1039,11 +1116,34 @@ function initSocket() {
   try {
     const socket = io();
     socket.on('order_status_update', ({ orderId, status }) => {
-      if (+orderId === +lastOrderId) {
+      const id = +orderId;
+
+      // 1. Tela de confirmação (logo após fazer o pedido)
+      if (id === +lastOrderId && !$('s-confirm').classList.contains('hidden')) {
         lastOrderStatus = status;
         renderStatusSteps(status);
-        if (status === 'delivered') showToast('🎉 Seu pedido foi entregue! Bom apetite!', 5000);
-        if (status === 'out_for_delivery') showToast('🛵 Seu pedido saiu para entrega!', 5000);
+      }
+
+      // 2. Tela de detalhe (Meus Pedidos → Ver detalhes)
+      if (id === currentDetailOrderId) {
+        const stepsEl = $('od-status-steps');
+        const labelEl = $('od-status-label');
+        if (stepsEl && labelEl) renderSteps(status, stepsEl, labelEl);
+      }
+
+      // 3. Badge de status na lista de pedidos
+      const badge = $('ord-status-' + orderId);
+      if (badge) {
+        badge.textContent = ORD_LABELS[status] || status;
+        badge.className   = `ord-status st-${status}`;
+      }
+
+      // 4. Toasts de notificação para pedidos do cliente
+      if (id === +lastOrderId || id === currentDetailOrderId) {
+        if (status === 'delivered')        showToast('🎉 Seu pedido foi entregue! Bom apetite!', 5000);
+        else if (status === 'out_for_delivery') showToast('🛵 Seu pedido saiu para entrega!', 5000);
+        else if (status === 'preparing')   showToast('👨‍🍳 Seu pedido está sendo preparado!', 4000);
+        else if (status === 'confirmed')   showToast('✅ Pedido confirmado!', 3500);
       }
     });
   } catch {}
