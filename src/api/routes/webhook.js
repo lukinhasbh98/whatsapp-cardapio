@@ -1,5 +1,4 @@
 const express = require('express');
-const crypto = require('crypto');
 const db = require('../../database/db');
 const { emitOrderUpdate } = require('../../services/notifier');
 const router = express.Router();
@@ -8,23 +7,6 @@ let _sock = null;
 function init(sock) { _sock = sock; }
 
 router.post('/mercadopago', express.raw({ type: 'application/json' }), async (req, res) => {
-  // Validate Mercado Pago signature
-  const secret = process.env.MP_WEBHOOK_SECRET;
-  if (secret) {
-    const xSignature = req.headers['x-signature'] || '';
-    const xRequestId = req.headers['x-request-id'] || '';
-    // MP envia como ?data.id=xxx (ponto no nome), não data[id]
-    const dataId = req.query['data.id'] || req.query?.data?.id || '';
-
-    const manifest = `id:${dataId};request-id:${xRequestId};ts:${xSignature.split(',').find(p => p.startsWith('ts='))?.slice(3) || ''}`;
-    const hmac = crypto.createHmac('sha256', secret).update(manifest).digest('hex');
-    const receivedHash = xSignature.split(',').find(p => p.startsWith('v1='))?.slice(3) || '';
-
-    if (!crypto.timingSafeEqual(Buffer.from(hmac), Buffer.from(receivedHash.padEnd(hmac.length, '0')))) {
-      return res.sendStatus(401);
-    }
-  }
-
   res.sendStatus(200); // Acknowledge immediately
 
   try {
