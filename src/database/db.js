@@ -15,6 +15,7 @@ db.exec(schema);
 
 // Migrations
 try { db.exec("ALTER TABLE menu_items ADD COLUMN available_days TEXT DEFAULT '[]'"); } catch (_) { /* já existe */ }
+db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('delivery_password', '')").run();
 
 // Helpers
 db.getSetting = (key) => {

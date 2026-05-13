@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Entregas</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; min-height: 100vh; }
+
+    /* ── Login ── */
+    .login-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+    .card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 40px; width: 100%; max-width: 360px; }
+    .card .logo { text-align: center; font-size: 2.5rem; margin-bottom: 8px; }
+    .card h1 { text-align: center; font-size: 1.2rem; margin-bottom: 24px; color: #58a6ff; }
+    .card label { display: block; font-size: 0.85rem; color: #8b949e; margin-bottom: 6px; }
+    .card input { width: 100%; padding: 12px 14px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; font-size: 16px; margin-bottom: 20px; }
+    .card input:focus { outline: none; border-color: #58a6ff; }
+    .card .btn-login { width: 100%; padding: 14px; background: #238636; border: none; border-radius: 6px; color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer; }
+    .card .btn-login:hover { background: #2ea043; }
+    .card .error { color: #f85149; font-size: 0.85rem; margin-top: -12px; margin-bottom: 16px; display: none; }
+
+    /* ── App ── */
+    .app { display: none; }
+    nav { background: #161b22; border-bottom: 1px solid #30363d; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; }
+    nav .logo { font-size: 1.2rem; font-weight: 700; color: #58a6ff; }
+    nav .btn-logout { background: none; border: 1px solid #30363d; border-radius: 6px; color: #8b949e; padding: 6px 14px; cursor: pointer; font-size: 0.85rem; }
+    nav .btn-logout:hover { color: #e6edf3; }
+
+    .content { max-width: 600px; margin: 0 auto; padding: 24px 16px; }
+    .section-title { font-size: 0.9rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+    .count-badge { background: #58a6ff22; color: #58a6ff; border-radius: 20px; padding: 2px 10px; font-size: 0.8rem; font-weight: 700; }
+
+    .order-card { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 18px; margin-bottom: 14px; }
+    .order-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .order-num { font-weight: 700; font-size: 1.05rem; }
+    .order-time { font-size: 0.78rem; color: #8b949e; }
+    .order-row { display: flex; align-items: flex-start; gap: 8px; font-size: 0.88rem; color: #c9d1d9; margin-bottom: 8px; line-height: 1.4; }
+    .order-row .icon { flex-shrink: 0; width: 18px; }
+    .payment-chip { display: inline-block; background: #21262d; border-radius: 6px; padding: 2px 8px; font-size: 0.8rem; color: #8b949e; }
+    .change-note { color: #e3b341; font-size: 0.82rem; margin-top: 4px; }
+    .btn-deliver { width: 100%; margin-top: 14px; padding: 13px; background: #238636; border: none; border-radius: 8px; color: #fff; font-size: 1rem; font-weight: 700; cursor: pointer; letter-spacing: 0.02em; }
+    .btn-deliver:hover { background: #2ea043; }
+    .btn-deliver:disabled { background: #3fb950; opacity: 0.5; cursor: default; }
+
+    .empty { text-align: center; color: #8b949e; padding: 60px 20px; font-size: 1rem; }
+    .empty .icon { font-size: 3rem; margin-bottom: 12px; }
+
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #238636; color: #fff; padding: 12px 24px; border-radius: 8px; font-weight: 600; display: none; z-index: 999; white-space: nowrap; }
+
+    .refresh-btn { background: none; border: 1px solid #30363d; border-radius: 6px; color: #8b949e; padding: 4px 12px; cursor: pointer; font-size: 0.8rem; }
+    .refresh-btn:hover { color: #e6edf3; }
+
+    @media (max-width: 480px) {
+      .card { padding: 28px 20px; }
+      .content { padding: 16px 12px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Login -->
+  <div class="login-wrap" id="login-wrap">
+    <div class="card">
+      <div class="logo">🛵</div>
+      <h1>Painel do Entregador</h1>
+      <label>Senha</label>
+      <input type="password" id="password" placeholder="Digite a senha" onkeydown="if(event.key==='Enter')login()">
+      <p class="error" id="err"></p>
+      <button class="btn-login" onclick="login()">Entrar</button>
+    </div>
+  </div>
+
+  <!-- App -->
+  <div class="app" id="app">
+    <nav>
+      <span class="logo">🛵 Entregas</span>
+      <button class="btn-logout" onclick="logout()">Sair</button>
+    </nav>
+    <div class="content">
+      <div class="section-title">
+        Em rota de entrega
+        <span class="count-badge" id="count">0</span>
+        <button class="refresh-btn" onclick="loadOrders()">↻ Atualizar</button>
+      </div>
+      <div id="orders-list"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const TOKEN_KEY = 'delivery_token';
+    let token = localStorage.getItem(TOKEN_KEY);
+
+    function h() { return { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }; }
+
+    function fmt(v) { return 'R$ ' + Number(v).toFixed(2).replace('.', ','); }
+    function fmtPhone(p) { return p.replace(/\D/g,'').replace(/^55(\d{2})(\d{4,5})(\d{4})$/, '($1) $2-$3'); }
+
+    async function login() {
+      const pw = document.getElementById('password').value;
+      const errEl = document.getElementById('err');
+      errEl.style.display = 'none';
+      try {
+        const res = await fetch('/api/auth/delivery-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pw }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          token = data.token;
+          localStorage.setItem(TOKEN_KEY, token);
+          showApp();
+        } else {
+          const data = await res.json();
+          errEl.textContent = data.error || 'Senha incorreta.';
+          errEl.style.display = 'block';
+        }
+      } catch {
+        errEl.textContent = 'Erro de conexão.';
+        errEl.style.display = 'block';
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem(TOKEN_KEY);
+      token = null;
+      document.getElementById('app').style.display = 'none';
+      document.getElementById('login-wrap').style.display = 'flex';
+      document.getElementById('password').value = '';
+    }
+
+    function showApp() {
+      document.getElementById('login-wrap').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      loadOrders();
+      initSocket();
+    }
+
+    let orders = [];
+
+    async function loadOrders() {
+      try {
+        const res = await fetch('/api/delivery/orders', { headers: h() });
+        if (res.status === 401 || res.status === 403) { logout(); return; }
+        orders = await res.json();
+        renderOrders();
+      } catch { /* network error, ignore */ }
+    }
+
+    function renderOrders() {
+      const list = document.getElementById('orders-list');
+      document.getElementById('count').textContent = orders.length;
+
+      if (!orders.length) {
+        list.innerHTML = `<div class="empty"><div class="icon">✅</div>Nenhum pedido em rota no momento.</div>`;
+        return;
+      }
+
+      list.innerHTML = orders.map(o => {
+        const paymentLabel = { pix: 'PIX', cash: 'Dinheiro', card: 'Cartão' }[o.payment_method] || o.payment_method;
+        const changeHtml = o.payment_method === 'cash' && o.change_amount > 0
+          ? `<div class="change-note">💵 Troco para ${fmt(o.total + o.change_amount)} → troco: ${fmt(o.change_amount)}</div>`
+          : '';
+
+        return `
+          <div class="order-card" id="oc-${o.id}">
+            <div class="order-header">
+              <span class="order-num">#${String(o.id).padStart(4,'0')}</span>
+              <span class="order-time">${o.created_at}</span>
+            </div>
+            ${o.customer_name ? `<div class="order-row"><span class="icon">👤</span><span>${o.customer_name}</span></div>` : ''}
+            <div class="order-row"><span class="icon">📱</span><span>${fmtPhone(o.customer_phone)}</span></div>
+            <div class="order-row"><span class="icon">📍</span><span>${o.address}</span></div>
+            <div class="order-row">
+              <span class="icon">💰</span>
+              <span><strong>${fmt(o.total)}</strong> &nbsp;<span class="payment-chip">${paymentLabel}</span></span>
+            </div>
+            ${changeHtml}
+            <button class="btn-deliver" id="btn-${o.id}" onclick="markDelivered(${o.id})">✅ Marcar como Entregue</button>
+          </div>`;
+      }).join('');
+    }
+
+    async function markDelivered(id) {
+      const btn = document.getElementById(`btn-${id}`);
+      btn.disabled = true;
+      btn.textContent = 'Aguarde...';
+      try {
+        const res = await fetch(`/api/delivery/orders/${id}/delivered`, {
+          method: 'PUT',
+          headers: h(),
+        });
+        if (res.ok) {
+          orders = orders.filter(o => o.id !== id);
+          renderOrders();
+          showToast('✅ Pedido marcado como entregue!');
+        } else {
+          btn.disabled = false;
+          btn.textContent = '✅ Marcar como Entregue';
+          showToast('❌ Erro ao atualizar pedido.');
+        }
+      } catch {
+        btn.disabled = false;
+        btn.textContent = '✅ Marcar como Entregue';
+      }
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.display = 'block';
+      setTimeout(() => t.style.display = 'none', 3000);
+    }
+
+    function initSocket() {
+      try {
+        const socket = io();
+        socket.on('order_status_update', ({ orderId, status }) => {
+          if (status === 'out_for_delivery') {
+            // New order arrived for delivery — reload
+            loadOrders();
+          } else if (status !== 'out_for_delivery') {
+            // Remove if it left this state (e.g., cancelled from admin)
+            orders = orders.filter(o => o.id !== orderId);
+            renderOrders();
+          }
+        });
+      } catch { /* socket unavailable */ }
+    }
+
+    // Auto-refresh every 60 seconds as fallback
+    setInterval(loadOrders, 60000);
+
+    // Init
+    if (token) {
+      showApp();
+    }
+  </script>
+</body>
+</html>

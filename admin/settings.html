@@ -95,6 +95,15 @@
       <div class="form-group"><label>Número WhatsApp do admin (para receber alertas)</label><input id="admin_whatsapp" placeholder="Ex: 5511999999999 (só números, com DDI)"></div>
     </div>
 
+    <div class="section">
+      <h3>Acesso do Entregador</h3>
+      <div class="form-group">
+        <label>Senha do entregador</label>
+        <input id="delivery_password" type="password" placeholder="Defina uma senha para o entregador">
+        <small style="color:#8b949e;font-size:0.78rem;margin-top:4px;display:block">O entregador acessa via <strong>/entregador.html</strong> e só pode marcar pedidos como entregues.</small>
+      </div>
+    </div>
+
     <button class="btn-save" onclick="saveSettings()">Salvar configurações</button>
   </div>
 
@@ -105,7 +114,7 @@
     if (!token) location.href = '/';
     const h = () => ({ 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' });
 
-    const fields = ['business_name','welcome_message','closed_message','business_hours_open','business_hours_close','delivery_fee','min_order','estimated_time','pix_key','admin_whatsapp'];
+    const fields = ['business_name','welcome_message','closed_message','business_hours_open','business_hours_close','delivery_fee','min_order','estimated_time','pix_key','admin_whatsapp','delivery_password'];
 
     async function loadSettings() {
       const res = await fetch('/api/admin/settings', { headers: h() });
