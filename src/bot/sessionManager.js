@@ -3,6 +3,7 @@ const sessions = new Map();
 
 const STATES = {
   IDLE: 'IDLE',
+  AWAITING_NAME: 'AWAITING_NAME',
   MAIN_MENU: 'MAIN_MENU',
   BROWSING_CATEGORY: 'BROWSING_CATEGORY',
   BROWSING_ITEMS: 'BROWSING_ITEMS',
@@ -25,6 +26,7 @@ function getSession(phone) {
       cart: [],
       currentItem: null,
       address: '',
+      customerName: '',
       paymentMethod: null,
       orderId: null,
       pendingPaymentId: null,
@@ -42,6 +44,7 @@ function resetSession(phone) {
     cart: [],
     currentItem: null,
     address: '',
+    customerName: '',
     paymentMethod: null,
     orderId: null,
     pendingPaymentId: null,

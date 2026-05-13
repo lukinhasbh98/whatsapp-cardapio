@@ -1,7 +1,7 @@
 const db = require('../database/db');
 const { resolveJid } = require('./contactStore');
 const { getSession, resetSession, cartTotal, STATES } = require('./sessionManager');
-const { handleWelcome, isOpen } = require('./handlers/welcomeHandler');
+const { handleWelcome, isOpen, buildMainMenu } = require('./handlers/welcomeHandler');
 const { sendCategories, sendItems, sendExtras, sendCart } = require('./handlers/menuHandler');
 const { askAddress, handleAddressInput } = require('./handlers/addressHandler');
 const { handlePaymentChoice, handleChangeAmount } = require('./handlers/paymentHandler');
@@ -37,6 +37,12 @@ async function handleMessage(sock, msg) {
   // Rating response
   if (session.state === STATES.AWAITING_RATING) {
     await handleRating(sock, phone, session, text);
+    return;
+  }
+
+  // Name capture
+  if (session.state === STATES.AWAITING_NAME) {
+    await handleNameInput(sock, phone, session, text);
     return;
   }
 
@@ -182,6 +188,31 @@ async function handleMessage(sock, msg) {
 
   // Default fallback
   await handleWelcome(sock, phone, session);
+}
+
+async function handleNameInput(sock, phone, session, text) {
+  const trimmed = text.trim();
+  if (trimmed.length < 2) {
+    await sock.sendMessage(phone, { text: '❌ Nome muito curto. Por favor, informe seu nome.' });
+    return;
+  }
+
+  session.customerName = trimmed;
+
+  const existing = db.prepare('SELECT * FROM customers WHERE phone = ?').get(phone);
+  if (existing) {
+    db.prepare('UPDATE customers SET name = ? WHERE phone = ?').run(trimmed, phone);
+    session.returningCustomer = { ...existing, name: trimmed };
+  } else {
+    db.prepare('INSERT INTO customers (phone, name) VALUES (?, ?)').run(phone, trimmed);
+    session.returningCustomer = { phone, name: trimmed, last_address: '', last_order_id: null };
+  }
+
+  const businessName = db.getSetting('business_name') || 'Restaurante';
+  session.state = STATES.MAIN_MENU;
+  await sock.sendMessage(phone, {
+    text: `✅ Prazer, *${trimmed}*! 😊\n\n` + buildMainMenu(businessName, session.returningCustomer),
+  });
 }
 
 async function repeatLastOrder(sock, phone, session) {

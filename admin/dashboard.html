@@ -319,7 +319,7 @@
             </div>
             <span class="order-time">${o.created_at}</span>
           </div>
-          <div class="order-info">📱 ${fmtPhone(o.customer_phone)}</div>
+          <div class="order-info">👤 ${o.customer_name || '—'} &nbsp;|&nbsp; 📱 ${fmtPhone(o.customer_phone)}</div>
           <div class="order-info">📍 ${o.address}</div>
           <div class="order-info">💳 ${{pix:'PIX',cash:'Dinheiro',card:'Cartão'}[o.payment_method]||o.payment_method}${o.change_amount>0?' &nbsp;|&nbsp; Troco: '+fmt(o.change_amount):''}</div>
           <div class="order-footer">

@@ -13,8 +13,17 @@ function isOpen() {
   return nowMin >= openMin && nowMin < closeMin;
 }
 
+function buildMainMenu(businessName, customer) {
+  let msg = `*${businessName}* 🍴\n\nO que você deseja?\n\n`;
+  msg += `1️⃣ Ver Cardápio\n`;
+  if (customer && customer.last_order_id) msg += `2️⃣ Repetir último pedido\n`;
+  msg += `3️⃣ Informações\n\n`;
+  msg += `_Digite o número da opção desejada_`;
+  return msg;
+}
+
 async function handleWelcome(sock, phone, session) {
-  const name = db.getSetting('business_name') || 'Restaurante';
+  const businessName = db.getSetting('business_name') || 'Restaurante';
   const welcome = db.getSetting('welcome_message') || 'Olá!';
 
   if (!isOpen()) {
@@ -22,24 +31,28 @@ async function handleWelcome(sock, phone, session) {
     const closeTime = db.getSetting('business_hours_close') || '22:00';
     let closedMsg = db.getSetting('closed_message') || 'Estamos fechados. Voltamos às {open}.';
     closedMsg = closedMsg.replace('{open}', openTime).replace('{close}', closeTime);
-    await sock.sendMessage(phone, { text: `⛔ *${name}*\n\n${closedMsg}` });
+    await sock.sendMessage(phone, { text: `⛔ *${businessName}*\n\n${closedMsg}` });
     return;
   }
 
-  // Check for returning customer
   const customer = db.prepare('SELECT * FROM customers WHERE phone = ?').get(phone);
+  session.returningCustomer = customer || null;
 
-  let msg = `${welcome}\n\n*${name}* 🍴\n\n`;
-  msg += `O que você deseja?\n\n`;
-  msg += `1️⃣ Ver Cardápio\n`;
-  if (customer && customer.last_order_id) msg += `2️⃣ Repetir último pedido\n`;
-  msg += `3️⃣ Informações\n\n`;
-  msg += `_Digite o número da opção desejada_`;
+  // Ask for name if we don't have it yet
+  if (!customer || !customer.name) {
+    session.state = STATES.AWAITING_NAME;
+    await sock.sendMessage(phone, {
+      text: `${welcome}\n\n*${businessName}* 🍴\n\nPara começar, qual é o seu nome? 😊`,
+    });
+    return;
+  }
 
+  // Returning customer — greet by name
+  session.customerName = customer.name;
   session.state = STATES.MAIN_MENU;
-  session.returningCustomer = customer;
 
-  await sock.sendMessage(phone, { text: msg });
+  const greeting = `Olá, *${customer.name}*! 😊\n\n`;
+  await sock.sendMessage(phone, { text: greeting + buildMainMenu(businessName, customer) });
 }
 
-module.exports = { handleWelcome, isOpen };
+module.exports = { handleWelcome, isOpen, buildMainMenu };

@@ -129,13 +129,14 @@ async function placeOrder(sock, phone, session, total, deliveryFee, subtotal, me
   await sock.sendMessage(phone, { text: msg });
 
   // Update customer record
+  const customerName = session.customerName || session.returningCustomer?.name || '';
   const customer = db.prepare('SELECT * FROM customers WHERE phone = ?').get(phone);
   if (customer) {
-    db.prepare('UPDATE customers SET last_address = ?, last_order_id = ? WHERE phone = ?')
-      .run(session.address, orderId, phone);
+    db.prepare('UPDATE customers SET name = COALESCE(NULLIF(?, \'\'), name), last_address = ?, last_order_id = ? WHERE phone = ?')
+      .run(customerName, session.address, orderId, phone);
   } else {
-    db.prepare('INSERT INTO customers (phone, last_address, last_order_id) VALUES (?, ?, ?)')
-      .run(phone, session.address, orderId);
+    db.prepare('INSERT INTO customers (phone, name, last_address, last_order_id) VALUES (?, ?, ?, ?)')
+      .run(phone, customerName, session.address, orderId);
   }
 
   session.state = STATES.ORDER_PLACED;
@@ -171,7 +172,7 @@ async function saveOrder(phone, session, total, deliveryFee, subtotal, paymentMe
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-  const customerName = session.returningCustomer ? session.returningCustomer.name : '';
+  const customerName = session.customerName || session.returningCustomer?.name || '';
   const status = paymentMethod === 'pix' ? 'awaiting_payment' : 'confirmed';
   const changeAmount = session.changeAmount || 0;
 
