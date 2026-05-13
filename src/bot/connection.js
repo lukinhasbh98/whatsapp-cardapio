@@ -37,6 +37,10 @@ async function startBot() {
     auth: state,
     logger: pino({ level: 'silent' }),
     browser: Browsers.macOS('Safari'),
+    connectTimeoutMs: 60000,
+    keepAliveIntervalMs: 30000,
+    markOnlineOnConnect: false,
+    retryRequestDelayMs: 2000,
   });
 
   _connecting = false;
