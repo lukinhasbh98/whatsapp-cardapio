@@ -54,10 +54,13 @@
     .closed-banner{background:#fef3c7;border-bottom:1px solid #fde68a;padding:10px 16px;font-size:.85rem;color:#92400e;text-align:center}
 
     /* ── Category bar ── */
-    .cat-bar-wrap{position:sticky;top:60px;background:var(--card);border-bottom:1px solid var(--border);z-index:90}
-    .cat-bar-wrap::after{content:'';position:absolute;right:0;top:0;bottom:0;width:32px;background:linear-gradient(to right,transparent,var(--card));pointer-events:none}
-    body.dark .cat-bar-wrap::after{background:linear-gradient(to right,transparent,var(--card))}
-    .cat-bar{overflow-x:scroll;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;display:flex;gap:8px;padding:10px 16px;scrollbar-width:none;flex-wrap:nowrap}
+    .cat-bar-wrap{position:sticky;top:60px;background:var(--card);border-bottom:1px solid var(--border);z-index:90;display:flex;align-items:center}
+    .cat-scroll-btn{flex-shrink:0;width:32px;height:100%;display:flex;align-items:center;justify-content:center;background:var(--card);border:none;cursor:pointer;font-size:1.1rem;color:var(--muted);padding:0;z-index:1}
+    .cat-scroll-btn:hover{color:var(--pri)}
+    .cat-scroll-btn.hidden{display:none}
+    .cat-bar-wrap::before{content:'';position:absolute;left:32px;top:0;bottom:0;width:24px;background:linear-gradient(to right,var(--card),transparent);pointer-events:none;z-index:1}
+    .cat-bar-wrap::after{content:'';position:absolute;right:32px;top:0;bottom:0;width:24px;background:linear-gradient(to left,var(--card),transparent);pointer-events:none;z-index:1}
+    .cat-bar{overflow-x:scroll;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;display:flex;gap:8px;padding:10px 8px;scrollbar-width:none;flex-wrap:nowrap;flex:1;min-width:0}
     .cat-bar::-webkit-scrollbar{display:none}
     .cat-pill{flex-shrink:0;padding:10px 18px;border-radius:22px;border:1.5px solid var(--border);background:var(--card);color:var(--muted);font-size:.88rem;cursor:pointer;font-weight:500;white-space:nowrap;transition:all .15s;-webkit-tap-highlight-color:transparent;min-height:44px;display:flex;align-items:center;gap:6px}
     .cat-pill.active{background:var(--pri);border-color:var(--pri);color:#fff;font-weight:700}
@@ -184,7 +187,11 @@
     .st-cancelled{background:#dc262622;color:#dc2626}
 
     /* ── Toast ── */
-    #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:12px 24px;border-radius:30px;font-size:.9rem;font-weight:600;display:none;z-index:999;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.2)}
+    #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(0);background:#1a1a1a;color:#fff;padding:13px 28px;border-radius:30px;font-size:.92rem;font-weight:600;display:none;z-index:999;white-space:nowrap;box-shadow:0 6px 24px rgba(0,0,0,.25);animation:toastIn .25s ease}
+    @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+    /* ── Cart badge pop ── */
+    @keyframes cartPop{0%{transform:scale(1)}40%{transform:scale(1.5)}70%{transform:scale(.9)}100%{transform:scale(1)}}
+    .cart-count.pop{animation:cartPop .35s ease}
 
     /* ── Dark mode overrides ── */
     body.dark .auth-card{background:var(--card)}
@@ -221,7 +228,7 @@
 
     /* ── Safe area / fixed footer ── */
     .co-footer{padding-bottom:max(14px,env(safe-area-inset-bottom,14px))}
-    #toast{bottom:max(24px,calc(16px + env(safe-area-inset-bottom,0px)))}
+    #toast{bottom:max(24px,calc(20px + env(safe-area-inset-bottom,0px)))!important}
 
     /* ── Mobile tweaks ── */
     @media(max-width:480px){
@@ -237,8 +244,8 @@
     }
   </style>
 </head>
-<script>if(localStorage.getItem('loja_dark')==='1')document.body.classList.add('dark')</script>
 <body>
+<script>if(localStorage.getItem('loja_dark')==='1')document.body.classList.add('dark')</script>
 
 <!-- ═══════════════════ AUTH SCREEN ═══════════════════ -->
 <div id="s-auth">
@@ -307,7 +314,9 @@
     </div>
   </div>
   <div class="cat-bar-wrap">
+    <button class="cat-scroll-btn hidden" id="cat-prev" onclick="scrollCats(-1)" aria-label="Anterior">‹</button>
     <div class="cat-bar" id="cat-bar"></div>
+    <button class="cat-scroll-btn hidden" id="cat-next" onclick="scrollCats(1)" aria-label="Próxima">›</button>
   </div>
   <div id="closed-banner" class="closed-banner hidden"></div>
   <div class="items-wrap" id="items-wrap"></div>
@@ -603,6 +612,20 @@ async function initApp() {
 }
 
 // ─── Menu ─────────────────────────────────────────────────────────────────────
+function scrollCats(dir) {
+  const bar = $('cat-bar');
+  bar.scrollBy({ left: dir * 160, behavior: 'smooth' });
+}
+
+function updateCatArrows() {
+  const bar = $('cat-bar');
+  if (!bar) return;
+  const atStart = bar.scrollLeft <= 4;
+  const atEnd   = bar.scrollLeft + bar.clientWidth >= bar.scrollWidth - 4;
+  $('cat-prev').classList.toggle('hidden', atStart);
+  $('cat-next').classList.toggle('hidden', atEnd);
+}
+
 async function loadCategories() {
   try {
     const r = await fetch('/api/customer/categories');
@@ -613,6 +636,20 @@ async function loadCategories() {
   bar.innerHTML = categories.map(c =>
     `<button class="cat-pill" id="cat-${c.id}" onclick="selectCat(${c.id})">${c.emoji} ${c.name}</button>`
   ).join('');
+
+  // Scroll horizontal com mouse wheel no desktop
+  bar.addEventListener('wheel', e => {
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      e.preventDefault();
+      bar.scrollBy({ left: e.deltaY * 1.5, behavior: 'auto' });
+    }
+    updateCatArrows();
+  }, { passive: false });
+
+  bar.addEventListener('scroll', updateCatArrows, { passive: true });
+
+  // Atualiza setas após render
+  requestAnimationFrame(updateCatArrows);
 
   if (categories.length) selectCat(categories[0].id);
 }
@@ -735,7 +772,12 @@ function addToCart() {
   cart.push({ id: selectedItem.id, name: selectedItem.name, price: selectedItem.price, qty: selectedQty, extras: [...selectedExtras] });
   saveCart();
   closeDrawers();
-  showToast(`✅ ${selectedItem.name} adicionado ao carrinho!`);
+  showToast(`✅ ${selectedItem.name} adicionado!`);
+  const badge = $('cart-count');
+  badge.classList.remove('pop');
+  void badge.offsetWidth; // reflow para reiniciar animação
+  badge.classList.add('pop');
+  setTimeout(() => badge.classList.remove('pop'), 400);
 }
 
 // ─── Cart ─────────────────────────────────────────────────────────────────────
@@ -997,7 +1039,7 @@ function initSocket() {
   try {
     const socket = io();
     socket.on('order_status_update', ({ orderId, status }) => {
-      if (orderId === lastOrderId) {
+      if (+orderId === +lastOrderId) {
         lastOrderStatus = status;
         renderStatusSteps(status);
         if (status === 'delivered') showToast('🎉 Seu pedido foi entregue! Bom apetite!', 5000);

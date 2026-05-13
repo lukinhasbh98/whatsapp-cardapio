@@ -111,12 +111,12 @@ async function notifyOrderStatus(sock, orderId, status) {
   }
 
   if (_io) {
-    _io.emit('order_status_update', { orderId, status });
+    _io.emit('order_status_update', { orderId: +orderId, status });
   }
 }
 
 function emitOrderUpdate(orderId, status) {
-  if (_io) _io.emit('order_status_update', { orderId, status });
+  if (_io) _io.emit('order_status_update', { orderId: +orderId, status });
 }
 
 function updateSock(sock) {
