@@ -1076,6 +1076,10 @@ function showConfirmScreen(data, confirmedCart) {
 
   renderStatusSteps(data.status);
   showScreen('s-confirm');
+
+  // Inicia polling se aguardando PIX (fallback para o socket)
+  if (data.status === 'awaiting_payment') startStatusPolling(data.orderId);
+  else stopStatusPolling();
 }
 
 function renderSteps(currentStatus, stepsEl, labelEl) {
@@ -1198,6 +1202,29 @@ function initSocket() {
       }
     });
   } catch {}
+}
+
+// ─── Polling de status (fallback para o socket) ───────────────────────────────
+let _statusPollTimer = null;
+function startStatusPolling(orderId) {
+  stopStatusPolling();
+  _statusPollTimer = setInterval(async () => {
+    try {
+      const r = await fetch(`/api/customer/orders/${orderId}`, { headers: h() });
+      if (!r.ok) return;
+      const d = await r.json();
+      if (d.status !== lastOrderStatus) {
+        lastOrderStatus = d.status;
+        renderStatusSteps(d.status);
+        if (d.status === 'confirmed')        showToast('✅ Pagamento PIX confirmado!', 4000);
+        else if (d.status === 'cancelled')   showToast('❌ Pedido cancelado.', 4000);
+        if (d.status !== 'awaiting_payment') stopStatusPolling();
+      }
+    } catch {}
+  }, 5000);
+}
+function stopStatusPolling() {
+  if (_statusPollTimer) { clearInterval(_statusPollTimer); _statusPollTimer = null; }
 }
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────

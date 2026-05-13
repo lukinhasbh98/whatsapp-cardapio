@@ -1,6 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const db = require('../../database/db');
+const { emitOrderUpdate } = require('../../services/notifier');
 const router = express.Router();
 
 let _sock = null;
@@ -38,8 +39,13 @@ router.post('/mercadopago', express.raw({ type: 'application/json' }), async (re
       const order = db.prepare('SELECT * FROM orders WHERE mp_payment_id = ?').get(String(paymentId));
       if (!order || order.status !== 'awaiting_payment') return;
 
-      db.prepare("UPDATE orders SET status = 'confirmed' WHERE id = ?").run(order.id);
+      db.prepare("UPDATE orders SET status = 'confirmed', updated_at = datetime('now','localtime') WHERE id = ?").run(order.id);
 
+      // Notifica painel admin e loja em tempo real via socket
+      emitOrderUpdate(order.id, 'confirmed');
+      console.log(`[Webhook] PIX confirmado — Pedido #${order.id}`);
+
+      // Notifica cliente via WhatsApp (se bot estiver conectado)
       const { confirmPixPayment } = require('../../bot/handlers/paymentHandler');
       const customerJid = `${order.customer_phone.replace(/\D/g, '')}@s.whatsapp.net`;
       if (_sock) await confirmPixPayment(_sock, customerJid, order.id);
