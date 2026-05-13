@@ -98,21 +98,23 @@ router.post('/orders', customerAuthMiddleware, async (req, res) => {
     .run(cleanAddr, orderId, req.customer.id);
 
   // Gera pagamento PIX real no Mercado Pago
-  let pixQrCode = null, pixQrCodeBase64 = null;
+  let pixQrCode = null, pixQrCodeBase64 = null, pixError = null;
   if (payment_method === 'pix') {
     try {
       const pixData = await createPixPayment(total, orderId, customer.phone);
       db.prepare('UPDATE orders SET mp_payment_id = ? WHERE id = ?').run(String(pixData.id), orderId);
       pixQrCode       = pixData.qrCode;
       pixQrCodeBase64 = pixData.qrCodeBase64;
+      console.log('[PIX] Pagamento criado:', pixData.id, '| qrCode length:', pixData.qrCode?.length, '| base64 length:', pixData.qrCodeBase64?.length);
     } catch (err) {
-      console.error('[PIX] Erro ao criar pagamento MP:', err.message);
+      pixError = err.message;
+      console.error('[PIX] Erro ao criar pagamento MP:', JSON.stringify(err, null, 2));
     }
   }
 
   await notifyAdmin(null, orderId).catch(console.error);
 
-  res.json({ orderId, orderNum: String(orderId).padStart(4, '0'), status, total, deliveryFee, pixQrCode, pixQrCodeBase64 });
+  res.json({ orderId, orderNum: String(orderId).padStart(4, '0'), status, total, deliveryFee, pixQrCode, pixQrCodeBase64, pixError });
 });
 
 // ── Authenticated: order history ─────────────────────────────────────────────

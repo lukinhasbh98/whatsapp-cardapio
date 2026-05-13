@@ -1010,16 +1010,22 @@ function showConfirmScreen(data, confirmedCart) {
 
   // Bloco PIX com QR Code e Copia e Cola
   const pixBlock = document.getElementById('confirm-pix');
-  if (data.pixQrCode && data.status === 'awaiting_payment') {
-    pixBlock.innerHTML = `
-      <h4 style="margin-bottom:12px">💸 Pague agora via PIX</h4>
-      ${data.pixQrCodeBase64 ? `<div style="text-align:center;margin-bottom:16px"><img src="data:image/png;base64,${data.pixQrCodeBase64}" style="width:180px;height:180px;border-radius:10px;border:1px solid var(--border)" alt="QR Code PIX"></div>` : ''}
-      <div style="font-size:.78rem;color:var(--muted);margin-bottom:6px;font-weight:600">Copia e Cola:</div>
-      <div class="pix-box">
-        <div class="pix-key" id="pix-cc-val" style="font-size:.75rem">${data.pixQrCode}</div>
-        <button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('pix-cc-val').textContent).then(()=>showToast('✅ Código copiado!'))">Copiar</button>
-      </div>
-      <p style="font-size:.78rem;color:var(--muted);margin-top:10px;line-height:1.5">⚠️ Você tem <strong>10 minutos</strong> para pagar. O pedido será cancelado automaticamente se o pagamento não for identificado.</p>`;
+  if (data.status === 'awaiting_payment') {
+    if (data.pixQrCode) {
+      pixBlock.innerHTML = `
+        <h4 style="margin-bottom:12px">💸 Pague agora via PIX</h4>
+        ${data.pixQrCodeBase64 ? `<div style="text-align:center;margin-bottom:16px"><img src="data:image/png;base64,${data.pixQrCodeBase64}" style="width:180px;height:180px;border-radius:10px;border:1px solid var(--border)" alt="QR Code PIX"></div>` : ''}
+        <div style="font-size:.78rem;color:var(--muted);margin-bottom:6px;font-weight:600">Copia e Cola:</div>
+        <div class="pix-box">
+          <div class="pix-key" id="pix-cc-val" style="font-size:.75rem">${data.pixQrCode}</div>
+          <button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('pix-cc-val').textContent).then(()=>showToast('✅ Código copiado!'))">Copiar</button>
+        </div>
+        <p style="font-size:.78rem;color:var(--muted);margin-top:10px;line-height:1.5">⚠️ Você tem <strong>10 minutos</strong> para pagar. O pedido será cancelado automaticamente se o pagamento não for identificado.</p>`;
+    } else {
+      pixBlock.innerHTML = `
+        <h4 style="margin-bottom:8px;color:var(--err)">⚠️ Erro ao gerar PIX</h4>
+        <p style="font-size:.83rem;color:var(--muted);line-height:1.5">${data.pixError || 'Não foi possível gerar o QR Code. Entre em contato pelo WhatsApp.'}</p>`;
+    }
     pixBlock.style.display = 'block';
   } else {
     pixBlock.style.display = 'none';
