@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Cardápio Online</title>
   <script src="/socket.io/socket.io.js"></script>
   <style>
@@ -54,9 +54,12 @@
     .closed-banner{background:#fef3c7;border-bottom:1px solid #fde68a;padding:10px 16px;font-size:.85rem;color:#92400e;text-align:center}
 
     /* ── Category bar ── */
-    .cat-bar{background:#fff;border-bottom:1px solid #f0f0f0;padding:10px 16px;overflow-x:auto;display:flex;gap:8px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+    .cat-bar-wrap{position:sticky;top:60px;background:var(--card);border-bottom:1px solid var(--border);z-index:90}
+    .cat-bar-wrap::after{content:'';position:absolute;right:0;top:0;bottom:0;width:32px;background:linear-gradient(to right,transparent,var(--card));pointer-events:none}
+    body.dark .cat-bar-wrap::after{background:linear-gradient(to right,transparent,var(--card))}
+    .cat-bar{overflow-x:scroll;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;display:flex;gap:8px;padding:10px 16px;scrollbar-width:none;flex-wrap:nowrap}
     .cat-bar::-webkit-scrollbar{display:none}
-    .cat-pill{flex-shrink:0;padding:8px 16px;border-radius:20px;border:1.5px solid var(--border);background:#fff;color:var(--muted);font-size:.85rem;cursor:pointer;font-weight:500;white-space:nowrap;transition:all .15s}
+    .cat-pill{flex-shrink:0;padding:10px 18px;border-radius:22px;border:1.5px solid var(--border);background:var(--card);color:var(--muted);font-size:.88rem;cursor:pointer;font-weight:500;white-space:nowrap;transition:all .15s;-webkit-tap-highlight-color:transparent;min-height:44px;display:flex;align-items:center;gap:6px}
     .cat-pill.active{background:var(--pri);border-color:var(--pri);color:#fff;font-weight:700}
 
     /* ── Items ── */
@@ -189,8 +192,8 @@
     body.dark .tab-bar{background:#21262d}
     body.dark .tab.active{background:#30363d;color:var(--txt)}
     body.dark .fg input,body.dark .co-section input{background:#0d1117;color:var(--txt)}
-    body.dark .header,body.dark .cat-bar{background:var(--card)}
-    body.dark .cat-bar{border-bottom-color:var(--border)}
+    body.dark .header,body.dark .cat-bar-wrap,body.dark .cat-bar{background:var(--card)}
+    body.dark .cat-bar-wrap{border-bottom-color:var(--border)}
     body.dark .cat-pill{background:var(--card)}
     body.dark .item-card{background:var(--card);box-shadow:none}
     body.dark .drawer{background:var(--card)}
@@ -216,12 +219,21 @@
     body.dark #toast{background:#e6edf3;color:#1a1a1a}
     body.dark .header{box-shadow:0 1px 6px rgba(0,0,0,.4)}
 
+    /* ── Safe area / fixed footer ── */
+    .co-footer{padding-bottom:max(14px,env(safe-area-inset-bottom,14px))}
+    #toast{bottom:max(24px,calc(16px + env(safe-area-inset-bottom,0px)))}
+
     /* ── Mobile tweaks ── */
     @media(max-width:480px){
       .auth-card{padding:24px 20px}
       .header-main{padding:10px 14px}
-      .items-wrap{padding:12px 12px 100px}
-      .co-body{padding:12px 12px 110px}
+      .cat-bar-wrap{top:56px}
+      .items-wrap{padding:12px 12px 120px}
+      .co-body{padding:12px 12px 120px}
+      .item-add{width:40px;height:40px;font-size:1.5rem}
+      .item-card-name{font-size:1rem}
+      .item-card-desc{font-size:.85rem}
+      .cat-pill{padding:9px 14px;font-size:.85rem}
     }
   </style>
 </head>
@@ -293,6 +305,8 @@
         </div>
       </div>
     </div>
+  </div>
+  <div class="cat-bar-wrap">
     <div class="cat-bar" id="cat-bar"></div>
   </div>
   <div id="closed-banner" class="closed-banner hidden"></div>
@@ -413,6 +427,7 @@ let customerName = localStorage.getItem(NAME_KEY) || '';
 let cart         = JSON.parse(localStorage.getItem(CART_KEY) || '[]');
 let settings     = {};
 let categories   = [];
+let itemsList    = [];
 let currentCatId = null;
 let selectedItem = null;
 let selectedExtras = [];
@@ -615,24 +630,24 @@ async function loadItems(catId) {
   $('items-wrap').innerHTML = '<div class="no-items">Carregando...</div>';
   try {
     const r = await fetch(`/api/customer/items?category_id=${catId}`);
-    const items = await r.json();
-    if (!items.length) {
+    itemsList = await r.json();
+    if (!itemsList.length) {
       const DAY_NAMES = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
       $('items-wrap').innerHTML = `<div class="no-items">Nenhum item disponível nesta categoria hoje (${DAY_NAMES[new Date().getDay()]}).</div>`;
       return;
     }
-    $('items-wrap').innerHTML = items.map(item => {
+    $('items-wrap').innerHTML = itemsList.map((item, idx) => {
       const imgHtml = item.image_url
         ? `<img class="item-img" src="${item.image_url}" alt="${item.name}" loading="lazy">`
         : '';
       return `
-        <div class="item-card" onclick="openItem(${JSON.stringify(JSON.stringify(item))})">
+        <div class="item-card" onclick="openItem(${idx})">
           <div class="item-card-body">
             <div class="item-card-name">${item.name}</div>
             ${item.description ? `<div class="item-card-desc">${item.description}</div>` : ''}
             <div class="item-card-foot">
               <span class="item-price">${fmt(item.price)}</span>
-              <button class="item-add" onclick="event.stopPropagation();openItem(${JSON.stringify(JSON.stringify(item))})">+</button>
+              <button class="item-add" onclick="event.stopPropagation();openItem(${idx})">+</button>
             </div>
           </div>
           ${imgHtml}
@@ -644,8 +659,8 @@ async function loadItems(catId) {
 }
 
 // ─── Item drawer ──────────────────────────────────────────────────────────────
-async function openItem(jsonStr) {
-  selectedItem   = JSON.parse(jsonStr);
+async function openItem(idx) {
+  selectedItem   = itemsList[idx];
   selectedExtras = [];
   selectedQty    = 1;
 
